@@ -1,0 +1,32 @@
+[Unit]
+Description=GTM Telemetry Gateway — FTCAN canonical decoder and logger
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=gtm
+Group=gtm
+WorkingDirectory=/opt/gtm-gateway
+Environment=PYTHONPATH=/opt/gtm-gateway:/opt/gtm-gateway/lib
+Environment=GTM_LOG_DIR=/var/log/gtm-gateway/sessions
+Environment=GTM_SERIAL_PORT=/dev/ttyUSB0
+Environment=GTM_SERIAL_BAUD=115200
+ExecStart=/opt/gtm-gateway/.venv/bin/python run_gateway.py --port /dev/ttyUSB0 --baud 115200 --api-port 8420 --log-dir /var/log/gtm-gateway/sessions
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gtm-gateway
+
+# Hardening
+ProtectSystem=strict
+ReadWritePaths=/var/log/gtm-gateway
+PrivateTmp=true
+NoNewPrivileges=true
+
+# Serial device access
+SupplementaryGroups=dialout
+
+[Install]
+WantedBy=multi-user.target

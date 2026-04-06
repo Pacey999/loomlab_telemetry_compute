@@ -1,0 +1,491 @@
+{
+  "version": "1.0.0",
+  "protocol": "ftcan20",
+  "physicalLayer": {
+    "standard": "CAN 2.0B extended",
+    "bitrate": 1000000,
+    "idBits": 29,
+    "byteOrder": "big-endian"
+  },
+  "idLayout": {
+    "productId": {"bits": [28, 14], "width": 15},
+    "dataFieldId": {"bits": [13, 11], "width": 3},
+    "messageId": {"bits": [10, 0], "width": 11},
+    "productTypeId": {"bits": [14, 5], "width": 10, "parent": "productId"},
+    "uniqueId": {"bits": [4, 0], "width": 5, "parent": "productId"}
+  },
+  "productTypes": {
+    "0x0280": {"name": "FT500 ECU", "range": ["0x5000", "0x501F"], "priority": "medium"},
+    "0x0281": {"name": "FT600 ECU", "range": ["0x5020", "0x503F"], "priority": "medium"},
+    "0x0282": {"name": "Future ECU", "range": ["0x5040", "0x505F"], "priority": "medium"},
+    "0x0140": {"name": "Gear Controller", "range": ["0x2800", "0x281F"], "priority": "high"},
+    "0x023F": {"name": "Input Expander", "range": ["0x47E0", "0x47FF"], "priority": "medium"},
+    "0x0240": {"name": "WBO2 Nano", "range": ["0x4800", "0x481F"], "priority": "medium"},
+    "0x0241": {"name": "WBO2 Slim", "range": ["0x4820", "0x483F"], "priority": "medium"},
+    "0x0242": {"name": "Alcohol O2", "range": ["0x4840", "0x485F"], "priority": "medium"},
+    "0x0243": {"name": "FTSPARK A", "range": ["0x4860", "0x4860"], "priority": "medium"},
+    "0x0244": {"name": "Switchpad-8", "range": ["0x4880", "0x4881"], "priority": "medium"},
+    "0x0246": {"name": "TPMS Reader", "range": ["0x48C0", "0x48DF"], "priority": "medium"}
+  },
+  "dataFieldTypes": {
+    "0x00": {"name": "Standard CAN", "segmented": false},
+    "0x01": {"name": "Standard CAN Bridge", "segmented": false},
+    "0x02": {"name": "FTCAN 2.0", "segmented": true},
+    "0x03": {"name": "FTCAN 2.0 Bridge", "segmented": true}
+  },
+  "realtimeBroadcastMessageIds": {
+    "0x0FF": "critical",
+    "0x1FF": "high",
+    "0x2FF": "medium",
+    "0x3FF": "low"
+  },
+  "measures": [
+    {
+      "measureId": 2, "dataId": 1, "channel": "engine.tps_pct",
+      "label": "TPS", "unit": "%", "scale": 0.1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x600"],
+      "tags": ["engine", "core"], "validRange": [0.0, 100.0]
+    },
+    {
+      "measureId": 4, "dataId": 2, "channel": "engine.map_bar",
+      "label": "MAP", "unit": "bar", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x600"],
+      "tags": ["engine", "core"], "validRange": [-1.0, 6.0]
+    },
+    {
+      "measureId": 6, "dataId": 3, "channel": "engine.air_temp_c",
+      "label": "Air temperature", "unit": "°C", "scale": 0.1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 10,
+      "packetFamilies": ["realtime_tuple", "simplified_0x600"],
+      "tags": ["engine", "temps"], "validRange": [-40.0, 120.0]
+    },
+    {
+      "measureId": 8, "dataId": 4, "channel": "engine.coolant_temp_c",
+      "label": "Engine temperature", "unit": "°C", "scale": 0.1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 10,
+      "packetFamilies": ["realtime_tuple", "simplified_0x600"],
+      "tags": ["engine", "temps"], "validRange": [-40.0, 150.0]
+    },
+    {
+      "measureId": 10, "dataId": 5, "channel": "engine.oil_pressure_bar",
+      "label": "Oil pressure", "unit": "bar", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x601"],
+      "tags": ["engine", "pressures"], "validRange": [0.0, 15.0]
+    },
+    {
+      "measureId": 12, "dataId": 6, "channel": "engine.fuel_pressure_bar",
+      "label": "Fuel pressure", "unit": "bar", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x601"],
+      "tags": ["engine", "pressures"], "validRange": [0.0, 20.0]
+    },
+    {
+      "measureId": 14, "dataId": 7, "channel": "engine.water_pressure_bar",
+      "label": "Water pressure", "unit": "bar", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x601"],
+      "tags": ["engine", "pressures"], "validRange": [0.0, 10.0]
+    },
+    {
+      "measureId": 16, "dataId": 8, "channel": "engine.launch_mode",
+      "label": "ECU Launch Mode", "unit": "-", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["engine", "control"],
+      "encoding": "note1",
+      "enumValues": {"0": "None (running)", "1": "Burnout", "2": "Burnout Spool", "3": "3-Step", "4": "2-Step"}
+    },
+    {
+      "measureId": 18, "dataId": 9, "channel": "electrical.battery_v",
+      "label": "ECU Battery voltage", "unit": "V", "scale": 0.01, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["electrical", "core"], "validRange": [0.0, 20.0]
+    },
+    {
+      "measureId": 20, "dataId": 10, "channel": "vehicle.traction_speed_kmh",
+      "label": "Traction speed", "unit": "km/h", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["vehicle", "speed"]
+    },
+    {
+      "measureId": 22, "dataId": 11, "channel": "vehicle.drag_speed_kmh",
+      "label": "Drag speed", "unit": "km/h", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["vehicle", "speed"]
+    },
+    {
+      "measureId": 24, "dataId": 12, "channel": "vehicle.wheel_speed_fl_kmh",
+      "label": "Left front wheel speed", "unit": "km/h", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x603"],
+      "tags": ["vehicle", "wheels"], "validRange": [0, 400]
+    },
+    {
+      "measureId": 26, "dataId": 13, "channel": "vehicle.wheel_speed_fr_kmh",
+      "label": "Right front wheel speed", "unit": "km/h", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x603"],
+      "tags": ["vehicle", "wheels"], "validRange": [0, 400]
+    },
+    {
+      "measureId": 28, "dataId": 14, "channel": "vehicle.wheel_speed_rl_kmh",
+      "label": "Left rear wheel speed", "unit": "km/h", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x603"],
+      "tags": ["vehicle", "wheels"], "validRange": [0, 400]
+    },
+    {
+      "measureId": 30, "dataId": 15, "channel": "vehicle.wheel_speed_rr_kmh",
+      "label": "Right rear wheel speed", "unit": "km/h", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x603"],
+      "tags": ["vehicle", "wheels"], "validRange": [0, 400]
+    },
+    {
+      "measureId": 32, "dataId": 16, "channel": "driveline.driveshaft_rpm",
+      "label": "Driveshaft RPM", "unit": "rpm", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["driveline"]
+    },
+    {
+      "measureId": 34, "dataId": 17, "channel": "driveline.gear",
+      "label": "Gear", "unit": "-", "scale": 1, "signed": true,
+      "broadcastSource": "Gear Controller", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x601"],
+      "tags": ["driveline", "core"],
+      "encoding": "note2",
+      "enumValues": {"-2": "Park", "-1": "Reverse", "0": "Neutral", "1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "5": "5th", "6": "6th", "7": "7th", "8": "8th", "9": "9th", "10": "10th"}
+    },
+    {
+      "measureId": 78, "dataId": 39, "channel": "lambda.exhaust_o2",
+      "label": "Exhaust O2", "unit": "λ", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x602"],
+      "tags": ["lambda", "core"], "validRange": [0.5, 2.0]
+    },
+    {
+      "measureId": 122, "dataId": 61, "channel": "engine.egt_exhaust_c",
+      "label": "Exhaust EGT", "unit": "°C", "scale": 0.1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["engine", "egt"]
+    },
+    {
+      "measureId": 132, "dataId": 66, "channel": "engine.rpm",
+      "label": "ECU RPM", "unit": "rpm", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 1000,
+      "packetFamilies": ["realtime_tuple", "simplified_0x602"],
+      "tags": ["engine", "core"], "validRange": [0, 15000]
+    },
+    {
+      "measureId": 134, "dataId": 67, "channel": "engine.inj_time_a_ms",
+      "label": "ECU Injection Bank A Time", "unit": "ms", "scale": 0.01, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x607"],
+      "tags": ["engine", "injection"]
+    },
+    {
+      "measureId": 136, "dataId": 68, "channel": "engine.inj_time_b_ms",
+      "label": "ECU Injection Bank B Time", "unit": "ms", "scale": 0.01, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple", "simplified_0x607"],
+      "tags": ["engine", "injection"]
+    },
+    {
+      "measureId": 138, "dataId": 69, "channel": "engine.inj_duty_a_pct",
+      "label": "ECU Injection Bank A Duty Cycle", "unit": "%", "scale": 0.1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["engine", "injection"]
+    },
+    {
+      "measureId": 140, "dataId": 70, "channel": "engine.inj_duty_b_pct",
+      "label": "ECU Injection Bank B Duty Cycle", "unit": "%", "scale": 0.1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["engine", "injection"]
+    },
+    {
+      "measureId": 142, "dataId": 71, "channel": "engine.ignition_advance_deg",
+      "label": "ECU Ignition Advance/Retard", "unit": "°", "scale": 0.1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 1000,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["engine", "ignition"]
+    },
+    {
+      "measureId": 144, "dataId": 72, "channel": "engine.two_step_signal",
+      "label": "2-Step Signal", "unit": "-", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 1000,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["engine", "control"],
+      "encoding": "note7"
+    },
+    {
+      "measureId": 150, "dataId": 75, "channel": "engine.cut_pct",
+      "label": "ECU Cut", "unit": "%", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["engine", "control"]
+    },
+    {
+      "measureId": 162, "dataId": 81, "channel": "lambda.average_o2",
+      "label": "ECU Average O2", "unit": "λ", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["lambda"], "validRange": [0.5, 2.0]
+    },
+    {
+      "measureId": 278, "dataId": 139, "channel": "engine.trans_temp_c",
+      "label": "Transmission temperature", "unit": "°C", "scale": 0.1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 10,
+      "packetFamilies": ["realtime_tuple", "simplified_0x608"],
+      "tags": ["engine", "temps"], "validRange": [-40.0, 200.0]
+    },
+    {
+      "measureId": 282, "dataId": 141, "channel": "engine.oil_temp_c",
+      "label": "Oil temperature", "unit": "°C", "scale": 0.1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 10,
+      "packetFamilies": ["realtime_tuple", "simplified_0x602"],
+      "tags": ["engine", "temps"], "validRange": [-40.0, 200.0]
+    },
+    {
+      "measureId": 284, "dataId": 142, "channel": "engine.pit_limit_switch",
+      "label": "PitLimit Switch/Button", "unit": "-", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 10,
+      "packetFamilies": ["realtime_tuple", "simplified_0x602"],
+      "tags": ["control"],
+      "encoding": "note7"
+    },
+    {
+      "measureId": 736, "dataId": 368, "channel": "vehicle.ride_height",
+      "label": "Ride Height", "unit": "-", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 10,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["vehicle", "suspension"]
+    },
+    {
+      "measureId": 738, "dataId": 369, "channel": "vehicle.shock_fr",
+      "label": "Shock Sensor FR", "unit": "-", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 10,
+      "packetFamilies": ["realtime_tuple", "simplified_0x605"],
+      "tags": ["vehicle", "suspension"]
+    },
+    {
+      "measureId": 740, "dataId": 370, "channel": "vehicle.shock_fl",
+      "label": "Shock Sensor FL", "unit": "-", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 10,
+      "packetFamilies": ["realtime_tuple", "simplified_0x605"],
+      "tags": ["vehicle", "suspension"]
+    },
+    {
+      "measureId": 742, "dataId": 371, "channel": "vehicle.shock_rr",
+      "label": "Shock Sensor RR", "unit": "-", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 10,
+      "packetFamilies": ["realtime_tuple", "simplified_0x605"],
+      "tags": ["vehicle", "suspension"]
+    },
+    {
+      "measureId": 744, "dataId": 372, "channel": "vehicle.shock_rl",
+      "label": "Shock Sensor RL", "unit": "-", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 10,
+      "packetFamilies": ["realtime_tuple", "simplified_0x605"],
+      "tags": ["vehicle", "suspension"]
+    },
+    {
+      "measureId": 662, "dataId": 331, "channel": "engine.brake_pressure_bar",
+      "label": "Brake pressure", "unit": "bar", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 10,
+      "packetFamilies": ["realtime_tuple", "simplified_0x608"],
+      "tags": ["engine", "pressures"], "validRange": [0.0, 200.0]
+    },
+    {
+      "measureId": 656, "dataId": 328, "channel": "engine.fuel_flow_total_lpm",
+      "label": "Total Fuel Flow", "unit": "L/min", "scale": 0.01, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 10,
+      "packetFamilies": ["realtime_tuple", "simplified_0x607"],
+      "tags": ["engine", "fuel"]
+    },
+    {
+      "measureId": 642, "dataId": 321, "channel": "engine.fuel_consumption_l",
+      "label": "Fuel Total Consumption", "unit": "L", "scale": 1, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 0.5,
+      "packetFamilies": ["realtime_tuple", "simplified_0x608"],
+      "tags": ["engine", "fuel"]
+    },
+    {
+      "measureId": 36, "dataId": 18, "channel": "lambda.disabled_o2",
+      "label": "Disabled O2", "unit": "λ", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["lambda"]
+    },
+    {
+      "measureId": 38, "dataId": 19, "channel": "lambda.cyl1_o2",
+      "label": "Cylinder 1 O2", "unit": "λ", "scale": 0.001, "signed": true,
+      "broadcastSource": "WBO2 Nano", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["lambda"]
+    },
+    {
+      "measureId": 74, "dataId": 37, "channel": "lambda.left_bank_o2",
+      "label": "Left bank O2", "unit": "λ", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["lambda"]
+    },
+    {
+      "measureId": 76, "dataId": 38, "channel": "lambda.right_bank_o2",
+      "label": "Right bank O2", "unit": "λ", "scale": 0.001, "signed": true,
+      "broadcastSource": "PowerFT ECU", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["lambda"]
+    },
+    {
+      "measureId": 160, "dataId": 80, "channel": "driveline.gear_sensor_v",
+      "label": "GEAR Sensor Voltage", "unit": "V", "scale": 0.001, "signed": true,
+      "broadcastSource": "Gear Controller", "expectedRateHz": 100,
+      "packetFamilies": ["realtime_tuple"],
+      "tags": ["driveline"]
+    }
+  ],
+  "simplifiedPackets": {
+    "0x600": {
+      "label": "Core Engine 1",
+      "rateHz": 100,
+      "dataFieldId": 0,
+      "slots": [
+        {"position": 0, "measureId": 2, "channel": "engine.tps_pct"},
+        {"position": 1, "measureId": 4, "channel": "engine.map_bar"},
+        {"position": 2, "measureId": 6, "channel": "engine.air_temp_c"},
+        {"position": 3, "measureId": 8, "channel": "engine.coolant_temp_c"}
+      ]
+    },
+    "0x601": {
+      "label": "Pressures + Gear",
+      "rateHz": 100,
+      "dataFieldId": 0,
+      "slots": [
+        {"position": 0, "measureId": 10, "channel": "engine.oil_pressure_bar"},
+        {"position": 1, "measureId": 12, "channel": "engine.fuel_pressure_bar"},
+        {"position": 2, "measureId": 14, "channel": "engine.water_pressure_bar"},
+        {"position": 3, "measureId": 34, "channel": "driveline.gear"}
+      ]
+    },
+    "0x602": {
+      "label": "O2 + RPM + Oil Temp",
+      "rateHz": 100,
+      "dataFieldId": 0,
+      "slots": [
+        {"position": 0, "measureId": 78, "channel": "lambda.exhaust_o2"},
+        {"position": 1, "measureId": 132, "channel": "engine.rpm"},
+        {"position": 2, "measureId": 282, "channel": "engine.oil_temp_c"},
+        {"position": 3, "measureId": 284, "channel": "engine.pit_limit_switch"}
+      ]
+    },
+    "0x603": {
+      "label": "Wheel Speeds",
+      "rateHz": 100,
+      "dataFieldId": 0,
+      "slots": [
+        {"position": 0, "measureId": 26, "channel": "vehicle.wheel_speed_fr_kmh"},
+        {"position": 1, "measureId": 24, "channel": "vehicle.wheel_speed_fl_kmh"},
+        {"position": 2, "measureId": 30, "channel": "vehicle.wheel_speed_rr_kmh"},
+        {"position": 3, "measureId": 28, "channel": "vehicle.wheel_speed_rl_kmh"}
+      ]
+    },
+    "0x604": {
+      "label": "Traction Control",
+      "rateHz": 100,
+      "dataFieldId": 0,
+      "slots": [
+        {"position": 0, "channel": "vehicle.traction_slip"},
+        {"position": 1, "channel": "vehicle.traction_retard"},
+        {"position": 2, "channel": "vehicle.traction_cut"},
+        {"position": 3, "channel": "vehicle.heading"}
+      ]
+    },
+    "0x605": {
+      "label": "Shock Sensors",
+      "rateHz": 100,
+      "dataFieldId": 0,
+      "slots": [
+        {"position": 0, "measureId": 738, "channel": "vehicle.shock_fr"},
+        {"position": 1, "measureId": 740, "channel": "vehicle.shock_fl"},
+        {"position": 2, "measureId": 742, "channel": "vehicle.shock_rr"},
+        {"position": 3, "measureId": 744, "channel": "vehicle.shock_rl"}
+      ]
+    },
+    "0x606": {
+      "label": "G-Force / Yaw",
+      "rateHz": 100,
+      "dataFieldId": 0,
+      "slots": [
+        {"position": 0, "channel": "vehicle.gforce_accel"},
+        {"position": 1, "channel": "vehicle.gforce_lateral"},
+        {"position": 2, "channel": "vehicle.yaw_frontal"},
+        {"position": 3, "channel": "vehicle.yaw_lateral"}
+      ]
+    },
+    "0x607": {
+      "label": "Lambda + Injection",
+      "rateHz": 100,
+      "dataFieldId": 0,
+      "slots": [
+        {"position": 0, "channel": "lambda.correction"},
+        {"position": 1, "measureId": 134, "channel": "engine.inj_time_a_ms"},
+        {"position": 2, "measureId": 136, "channel": "engine.inj_time_b_ms"},
+        {"position": 3, "measureId": 656, "channel": "engine.fuel_flow_total_lpm"}
+      ]
+    },
+    "0x608": {
+      "label": "Temps + Fuel + Brake",
+      "rateHz": 100,
+      "dataFieldId": 0,
+      "slots": [
+        {"position": 0, "measureId": 278, "channel": "engine.trans_temp_c"},
+        {"position": 1, "measureId": 642, "channel": "engine.fuel_consumption_l"},
+        {"position": 2, "measureId": 662, "channel": "engine.brake_pressure_bar"},
+        {"position": 3, "measureId": 282, "channel": "engine.oil_temp_c"}
+      ]
+    }
+  },
+  "ft600ProductId": {
+    "productTypeId": 641,
+    "rangeStart": 20512,
+    "rangeEnd": 20543,
+    "hex": {"productTypeId": "0x0281", "rangeStart": "0x5020", "rangeEnd": "0x503F"}
+  },
+  "notes": {
+    "note1": "Launch mode encoding: 0=None/Running, 1=Burnout, 2=Burnout+Spool, 3=3-Step, 4=2-Step",
+    "note2": "Gear encoding: -2=Park, -1=Reverse, 0=Neutral, 1-10=Gear number",
+    "note3": "O2 sensor unit: 0=Undefined, 1=Lambda, 2=AFR methanol, 3=AFR ethanol, 4=AFR gasoline, 0xFF=Undefined",
+    "note4": "Speed sensor unit: 0=Km/h, 1=Mph",
+    "note5": "Pressure sensor unit: 0=bar, 1=PSI, 2=KPa",
+    "note6": "Temperature sensor unit: 0=°C, 1=°F",
+    "note7": "Switch/button: 0=Off, 1=On",
+    "note8": "Error code bitfield: bit0=Unknown pulse, bit1=Incorrect ignition order, bit2=Over voltage HV bus, bit3=Under voltage driver supply, bit4=Charge circuit fail, bit5=Power supply under voltage, bit6=12V switch under voltage",
+    "note9": "Output bitfield: bit0-15 map to outputs 1-16",
+    "note10": "Operation status: bit2=High power mode enabled",
+    "note12": "Day/Night: 0=Day, 1=Night"
+  },
+  "segmentation": {
+    "maxPayloadBytes": 1776,
+    "singlePacketMarker": 255,
+    "firstSegmentIndex": 0,
+    "lastSegmentIndex": 254,
+    "segmentDataOffset": 3,
+    "firstSegmentPayloadOffset": 3,
+    "continuationPayloadOffset": 1,
+    "firstSegmentPayloadBytes": 5,
+    "continuationPayloadBytes": 7,
+    "segmentationDataBytes": 2,
+    "payloadLengthMask": 2047
+  }
+}

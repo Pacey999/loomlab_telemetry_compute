@@ -1,0 +1,3 @@
+{"samples": [{"channel": "engine.rpm", "value": 2000.0, "unit": "rpm", "quality": "good"}, {"channel": "unknown.0x0000", "value": 0.0, "unit": "-", "quality": "unknown"}]}
+{"samples": [{"channel": "engine.rpm", "value": 2000.0, "unit": "rpm", "quality": "good"}, {"channel": "engine.tps_pct", "value": 50.0, "unit": "%", "quality": "good"}]}
+{"samples": [{"channel": "engine.map_bar", "value": 1.013, "unit": "bar", "quality": "good"}, {"channel": "unknown.0x0000", "value": 0.0, "unit": "-", "quality": "unknown"}]}
