@@ -1,7 +1,8 @@
 #pragma once
 
 /**
- * CAN / TWAI defaults for esp32-mini-debug (1 Mbps extended, accept all 29-bit IDs).
+ * CAN / TWAI — same pinout as esp32-mini-debug (bench consistency).
+ * ESP32 GPIO -> transceiver TXD/RXD -> CAN-H / CAN-L
  */
 
 #include <driver/twai.h>
@@ -14,16 +15,10 @@
 #define CAN_RX_GPIO 22
 #endif
 
-/** RX mailbox depth (driver queue). */
-#define CAN_RX_QUEUE_LEN 64
+#define CAN_RX_QUEUE_LEN 16
 
-/** Bit timing: 1 Mbps (ESP-IDF preset macro). */
 #define CAN_TIMING_1MBPS TWAI_TIMING_CONFIG_1MBITS
 
-/**
- * Single filter, extended: accept all 29-bit identifiers.
- * acceptance_code = 0, mask = 0x1FFFFFFF (compare all ID bits).
- */
 inline twai_filter_config_t can_filter_ext_accept_all() {
     twai_filter_config_t f{};
     f.acceptance_code  = 0;
@@ -32,7 +27,6 @@ inline twai_filter_config_t can_filter_ext_accept_all() {
     return f;
 }
 
-/** Alerts enabled for health / diagnostics. */
 #define CAN_ALERT_MASK                                                   \
     ((uint32_t)(TWAI_ALERT_RX_DATA | TWAI_ALERT_ERR_PASS |                \
                 TWAI_ALERT_BUS_ERROR | TWAI_ALERT_RX_QUEUE_FULL |         \

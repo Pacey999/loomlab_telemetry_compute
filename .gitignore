@@ -32,3 +32,6 @@ Thumbs.db
 *.log
 sessions/
 gtm-manual.pdf
+
+# Local agent / scratch
+agent-tools/

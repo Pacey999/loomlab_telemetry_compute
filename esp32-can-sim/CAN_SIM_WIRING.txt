@@ -1,0 +1,78 @@
+esp32-can-sim — bench wiring (layman + pin reference)
+=====================================================
+
+Q: Do I need a second CAN board (transceiver)?
+A: YES — each ESP32 needs its own CAN transceiver module (e.g. SN65HVD230 breakout).
+   The ESP32 chip only has a CAN *controller* (TWAI). It cannot drive the twisted pair
+   (CAN-H / CAN-L) directly. Think of the transceiver as the “radio” that speaks the
+   electrical CAN language on the bus.
+
+What you are building
+-----------------------
+Two complete nodes on the same short CAN bus:
+
+  [ ESP32 #1 “sim” ] — sends test frames (esp32-can-sim firmware)
+  [ ESP32 #2 “sniff”] — receives and prints JSON (esp32-mini-debug firmware)
+
+Each ESP32 has:
+  - ESP32 board
+  - SN65HVD230 (or TJA1050) module
+  - USB to PC for power + serial console
+
+ASCII diagram (two nodes, one bus)
+------------------------------------
+
+                    ESP32 #1 (sim)                    ESP32 #2 (mini-debug)
+                    ------------                      -------------------
+  USB 5V ---------> 5V / 3V3                         USB 5V ---------> 5V / 3V3
+  GND -------------> GND  --------------------------- GND  (same ground plane)
+
+  GPIO 21 (TX) ---> transceiver TXD                  GPIO 21 (TX) ---> transceiver TXD
+  GPIO 22 (RX) ---> transceiver RXD                  GPIO 22 (RX) ---> transceiver RXD
+  3.3V -----------> transceiver VCC                  3.3V -----------> transceiver VCC
+  GND -------------> transceiver GND                GND -------------> transceiver GND
+
+  transceiver CAN-H ------+----+----------------------+---- transceiver CAN-H
+  transceiver CAN-L ------+----+----------------------+---- transceiver CAN-L
+                          |    |
+                     (short bench)    Optional: 100–120 ohm resistor between CAN-H and CAN-L
+                          |    |       on one end of the stub (bench OK; ideal is 120Ω at each end)
+
+Layman explanation of pins
+----------------------------
+- GPIO 21 / 22: These are NOT the CAN bus wires. They are the ESP32 talking to the
+  transceiver chip in digital “controller” language (TXD/RXD).
+- CAN-H / CAN-L: These are the actual bus. Both transceivers’ CAN-H tie together;
+  both CAN-L tie together. That is the CAN bus.
+- Common ground: Tie ESP32 GND, transceiver GND, and the other ESP32 GND together.
+  Without a shared ground reference, the bus can look dead.
+
+ACK rule (important for 2-node test)
+------------------------------------
+CAN requires at least one *other* node to acknowledge a frame. In LISTEN_ONLY mode,
+the receiver does **not** send ACKs. So if the receiver is LISTEN_ONLY, the sender
+may see errors / bus-off.
+
+For this bench test with two ESP32s only:
+  - Flash esp32-can-sim on board #1 (TX) — uses NORMAL mode (required to send).
+  - Flash esp32-mini-debug on board #2 using the bench-pair environment so it runs in
+    NORMAL mode and ACKs the simulator:
+      cd esp32-mini-debug
+      pio run -e bench-pair -t upload
+      pio device monitor -b 921600
+  - Default esp32-mini-debug (LISTEN_ONLY) is still used for FT600 bench; use bench-pair
+    only for the two-ESP32 loopback test.
+
+If you prefer not to change mini-debug, add a third node (USB-CAN adapter, etc.) that
+ACKs.
+
+Flash commands
+--------------
+Simulator:
+  cd esp32-can-sim
+  pio run -t upload
+  pio device monitor -b 921600
+
+Expected:
+  - Sim serial: periodic {"type":"stats","tx_ok":...}
+  - Receiver serial: {"type":"frame",...} with id29 matching 0x140001FF or 0x14080600

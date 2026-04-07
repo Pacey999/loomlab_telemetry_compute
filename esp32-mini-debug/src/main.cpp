@@ -30,15 +30,23 @@ bool rx_stale(uint32_t now_ms) {
 }  // namespace
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(921600);
     delay(200);
 
     health_init();
 
+    /* LISTEN_ONLY: safe alone on FT600 bench (no ACK). For 2-node ESP32 loopback test with
+     * esp32-can-sim, build env bench-pair — NORMAL mode so this node ACKs simulator frames. */
+#ifdef BENCH_TWO_NODE_ACK
+    constexpr twai_mode_t k_twai_mode = TWAI_MODE_NORMAL;
+#else
+    constexpr twai_mode_t k_twai_mode = TWAI_MODE_LISTEN_ONLY;
+#endif
+
     twai_general_config_t g_config =
         TWAI_GENERAL_CONFIG_DEFAULT(static_cast<gpio_num_t>(CAN_TX_GPIO),
                                     static_cast<gpio_num_t>(CAN_RX_GPIO),
-                                    TWAI_MODE_NORMAL);
+                                    k_twai_mode);
     g_config.rx_queue_len = CAN_RX_QUEUE_LEN;
 
     twai_timing_config_t t_config = CAN_TIMING_1MBPS();
@@ -100,4 +108,6 @@ void loop() {
             g_last_warn_ms = 0;
         }
     }
+
+    delay(1);
 }
