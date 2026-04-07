@@ -22,7 +22,7 @@
 inline twai_filter_config_t can_filter_ext_accept_all() {
     twai_filter_config_t f{};
     f.acceptance_code  = 0;
-    f.acceptance_mask  = 0x1FFFFFFF;
+    f.acceptance_mask  = 0xFFFFFFFF;
     f.single_filter    = true;
     return f;
 }
