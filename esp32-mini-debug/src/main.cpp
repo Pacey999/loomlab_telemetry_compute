@@ -4,6 +4,7 @@
 
 #include "can_config.h"
 #include "frame_output.h"
+#include "ftcan_segment_asm.h"
 #include "health.h"
 #include "mini_decode.h"
 
@@ -87,11 +88,11 @@ void setup() {
     constexpr const char* k_twai_mode_json = "\"twai_mode\":\"LISTEN_ONLY\"";
 #endif
 #ifdef RX_SERIAL_QUIET
-    Serial.printf("{\"type\":\"startup\",\"firmware\":\"esp32-mini-debug\",\"version\":\"1.0.2\","
+    Serial.printf("{\"type\":\"startup\",\"firmware\":\"esp32-mini-debug\",\"version\":\"1.1.0\","
                   "\"rx_serial_quiet\":true,\"bench\":\"ftcan_two_node\",%s}\n",
                   k_twai_mode_json);
 #else
-    Serial.printf("{\"type\":\"startup\",\"firmware\":\"esp32-mini-debug\",\"version\":\"1.0.2\",%s}\n",
+    Serial.printf("{\"type\":\"startup\",\"firmware\":\"esp32-mini-debug\",\"version\":\"1.1.0\",%s}\n",
                   k_twai_mode_json);
 #endif
     g_last_health_ms = millis();
@@ -101,6 +102,9 @@ void loop() {
     uint32_t alerts = 0;
     if (twai_read_alerts(&alerts, 0) == ESP_OK && alerts != 0) {
         health_process_alerts(alerts);
+        if (alerts & TWAI_ALERT_BUS_OFF) {
+            ftcan_segment_reset_all();
+        }
     }
 
     twai_message_t msg{};

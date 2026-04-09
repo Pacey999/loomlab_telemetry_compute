@@ -16,6 +16,7 @@
 #include <driver/twai.h>
 
 #include "can_config.h"
+#include "id_parser.h"
 
 // ─── LOOPBACK / CONNECTIVITY TEST ────────────────────────────────────────────
 #ifdef CAN_LOOPBACK_TEST
@@ -111,22 +112,25 @@ void setup() {
 }
 void loop() { delay(5000); }
 
-#else  // ─── NORMAL FRAME GENERATOR ──────────────────────────────────────────
+#else  // ─── NORMAL FRAME GENERATOR (FTCAN 2.0 E2E bench) ─────────────────────
 
 namespace {
 
-/** Known IDs (29-bit) — same family as fixtures (FuelTech-style extended). */
-constexpr uint32_t ID_RPM_TUPLE = 0x140001FFu;   /* realtime tuple style */
-constexpr uint32_t ID_SIMPLE_600 = 0x14080600u; /* simplified 0x600 */
+/** FT600 default ProductID (unique ID 0). All IDs must pass mini_decode is_ft600(). */
+constexpr uint16_t k_ft600_pid = 0x5020u;
 
-/** ~10 Hz total (~5 Hz per ID) — leaves headroom for ACK + UART on both boards. */
-constexpr uint32_t TX_PERIOD_MS = 100u;
-constexpr uint32_t SERIAL_BAUD = 921600u;
+/*
+ * Rotating E2E pattern — one frame per tick (~12.5 Hz per phase @ 80 ms).
+ * Covers: realtime tuples (DFI 0x00 / 0x02), simplified 0x600–0x608, 2-frame segmented.
+ */
+constexpr uint32_t TX_PERIOD_MS = 80u;
+constexpr uint32_t SERIAL_BAUD    = 921600u;
+constexpr uint8_t  k_num_phases   = 13u;
 
 uint32_t g_tx_ok = 0;
 uint32_t g_tx_fail = 0;
 uint32_t g_seq = 0;
-bool     g_alt_id = false;
+uint8_t  g_phase = 0;
 bool     g_logged_tx_err = false;
 
 void send_one(uint32_t id29, const uint8_t* data8) {
@@ -191,8 +195,9 @@ void setup() {
         }
     }
 
-    Serial.println("{\"type\":\"startup\",\"firmware\":\"esp32-can-sim\",\"version\":\"1.0.1\","
-                   "\"mode\":\"tx\",\"bitrate_kbps\":1000,\"extended\":true}");
+    Serial.println("{\"type\":\"startup\",\"firmware\":\"esp32-can-sim\",\"version\":\"1.2.0\","
+                   "\"mode\":\"ftcan_e2e\",\"product_id\":\"0x5020\",\"phases\":13,"
+                   "\"bitrate_kbps\":1000,\"extended\":true}");
 }
 
 void loop() {
@@ -211,17 +216,165 @@ void loop() {
 
     g_seq++;
 
-    /* RPM-style tuple: 0x0084, 0x07D0 = 2000 (big-endian) */
-    uint8_t rpm[8] = {0x00, 0x84, 0x07, 0xD0, 0x00, 0x00, 0x00, 0x00};
-    /* Simplified 0x600 sample-ish payload */
-    uint8_t simp[8] = {0x01, 0xF4, 0x03, 0xF5, 0x00, 0xFA, 0x03, 0x84};
+    /* Pre-built payloads — big-endian int16 per FTCAN spec. */
+    uint8_t d[8] = {};
 
-    if (g_alt_id) {
-        send_one(ID_SIMPLE_600, simp);
-    } else {
-        send_one(ID_RPM_TUPLE, rpm);
+    uint32_t id29   = 0;
+    bool     skip_single_send = false;
+    switch (g_phase) {
+        case 0: {
+            /* Realtime tuple, DFI 0x00, MID 0x1FF — two measures: TPS + MAP */
+            id29 = build_can_id(k_ft600_pid, 0x00, 0x1FF);
+            d[0] = 0x00;
+            d[1] = 0x02;
+            d[2] = 0x03;
+            d[3] = 0xE8; /* TPS raw 1000 → 100.0 % */
+            d[4] = 0x00;
+            d[5] = 0x04;
+            d[6] = 0x03;
+            d[7] = 0xE8; /* MAP raw 1000 → 1.000 bar */
+        } break;
+        case 1: {
+            /* FTCAN 2.0 single-packet (seg 0xFF), MID 0x2FF — TPS only */
+            id29 = build_can_id(k_ft600_pid, 0x02, 0x2FF);
+            d[0] = 0xFF;
+            d[1] = 0x00;
+            d[2] = 0x02;
+            d[3] = 0x03;
+            d[4] = 0xE8;
+            d[5] = 0x00;
+            d[6] = 0x00;
+            d[7] = 0x00;
+        } break;
+        case 2: {
+            /* FTCAN 2.0 first segment: total payload 4 B, one tuple TPS */
+            id29 = build_can_id(k_ft600_pid, 0x02, 0x0FF);
+            d[0] = 0x00;
+            d[1] = 0x00;
+            d[2] = 0x04;
+            d[3] = 0x00;
+            d[4] = 0x02;
+            d[5] = 0x03;
+            d[6] = 0xE8;
+            d[7] = 0x00;
+        } break;
+        case 3: {
+            /* Simplified 0x600 — matches measure-registry simplifiedPackets.0x600 */
+            id29 = build_can_id(k_ft600_pid, 0x00, 0x600);
+            d[0] = 0x01;
+            d[1] = 0xF4; /* TPS 500 → 50 % */
+            d[2] = 0x03;
+            d[3] = 0xE8; /* MAP 1000 → 1 bar */
+            d[4] = 0x01;
+            d[5] = 0x90; /* air 400 → 40 °C */
+            d[6] = 0x03;
+            d[7] = 0x20; /* coolant 800 → 80 °C */
+        } break;
+        case 4: {
+            id29 = build_can_id(k_ft600_pid, 0x00, 0x601);
+            d[0] = 0x03;
+            d[1] = 0xE8;
+            d[2] = 0x03;
+            d[3] = 0xE8;
+            d[4] = 0x03;
+            d[5] = 0xE8;
+            d[6] = 0x00;
+            d[7] = 0x05;
+        } break;
+        case 5: {
+            id29 = build_can_id(k_ft600_pid, 0x00, 0x602);
+            d[0] = 0x07;
+            d[1] = 0xD0; /* lambda raw */
+            d[2] = 0x07;
+            d[3] = 0xD0; /* 2000 RPM */
+            d[4] = 0x00;
+            d[5] = 0xB4;
+            d[6] = 0x00;
+            d[7] = 0x01;
+        } break;
+        case 6: {
+            id29 = build_can_id(k_ft600_pid, 0x00, 0x603);
+            d[0] = 0x00;
+            d[1] = 0x64;
+            d[2] = 0x00;
+            d[3] = 0x65;
+            d[4] = 0x00;
+            d[5] = 0x66;
+            d[6] = 0x00;
+            d[7] = 0x67;
+        } break;
+        case 7: {
+            id29 = build_can_id(k_ft600_pid, 0x00, 0x604);
+            d[0] = 0x00;
+            d[1] = 0x0A;
+            d[2] = 0x00;
+            d[3] = 0x14;
+            d[4] = 0x00;
+            d[5] = 0x1E;
+            d[6] = 0x01;
+            d[7] = 0x2C;
+        } break;
+        case 8: {
+            id29 = build_can_id(k_ft600_pid, 0x00, 0x605);
+            d[0] = 0x03;
+            d[1] = 0xE8;
+            d[2] = 0x03;
+            d[3] = 0xE9;
+            d[4] = 0x03;
+            d[5] = 0xEA;
+            d[6] = 0x03;
+            d[7] = 0xEB;
+        } break;
+        case 9: {
+            id29 = build_can_id(k_ft600_pid, 0x00, 0x606);
+            d[0] = 0x00;
+            d[1] = 0x64;
+            d[2] = 0xFF;
+            d[3] = 0x9C;
+            d[4] = 0x00;
+            d[5] = 0x32;
+            d[6] = 0x00;
+            d[7] = 0x33;
+        } break;
+        case 10: {
+            id29 = build_can_id(k_ft600_pid, 0x00, 0x607);
+            d[0] = 0x03;
+            d[1] = 0xE8;
+            d[2] = 0x01;
+            d[3] = 0xF4;
+            d[4] = 0x02;
+            d[5] = 0x58;
+            d[6] = 0x00;
+            d[7] = 0xC8;
+        } break;
+        case 11: {
+            id29 = build_can_id(k_ft600_pid, 0x00, 0x608);
+            d[0] = 0x01;
+            d[1] = 0xF4;
+            d[2] = 0x00;
+            d[3] = 0x64;
+            d[4] = 0x13;
+            d[5] = 0x88;
+            d[6] = 0x02;
+            d[7] = 0xBC;
+        } break;
+        case 12: {
+            /* Two CAN frames: 8 B payload = TPS + MAP tuples, MID 0x3FF, DFI 0x02 */
+            id29 = build_can_id(k_ft600_pid, 0x02, 0x3FF);
+            const uint8_t s0[8] = {0x00, 0x00, 0x08, 0x00, 0x02, 0x03, 0xE8, 0x00};
+            const uint8_t s1[8] = {0x01, 0x04, 0x03, 0xE8, 0x00, 0x00, 0x00, 0x00};
+            send_one(id29, s0);
+            send_one(id29, s1);
+            skip_single_send = true;
+        } break;
+        default:
+            break;
     }
-    g_alt_id = !g_alt_id;
+
+    if (!skip_single_send) {
+        send_one(id29, d);
+    }
+    g_phase = static_cast<uint8_t>((g_phase + 1u) % k_num_phases);
 
     static uint32_t s_last_stats = 0;
     const uint32_t now = millis();

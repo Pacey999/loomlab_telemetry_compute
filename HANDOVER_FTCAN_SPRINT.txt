@@ -1,0 +1,159 @@
+================================================================================
+LOOMLAB TELEMETRY — FTCAN SPRINT HANDOVER (ESP32 bench → FT600)
+================================================================================
+Date context: sprint completed embedded + protocol work for two-ESP32 CAN bench,
+              FT600 live capture attempts, and structured path to full E2E.
+
+Purpose: give a fresh team enough context to finish simulation coverage, harden
+E2E tests, then attach the FT600 with confidence.
+
+--------------------------------------------------------------------------------
+1. WHAT THIS PROJECT IS DOING
+--------------------------------------------------------------------------------
+- Goal: receive FuelTech FTCAN 2.0 on CAN 2.0B extended @ 1 Mbps, decode to
+  structured channels (TPS, MAP, RPM, wheel speeds, etc.) for telemetry.
+- Stack:
+  * esp32-can-sim     — TX test rig (known IDs/payloads).
+  * esp32-mini-debug  — RX + JSONL frame log + JSON "decoded" lines.
+  * shared/protocol/ftcan — id layout, Python segmentation, measure-registry.json.
+  * tools/ftcan_e2e_bench.py — quick serial smoke check (needs pyserial).
+
+Physical layer: each ESP32 needs SN65HVD230 (or similar); TWAI does not drive
+CAN-H/L directly. Termination: 120 Ω ideal; 100 Ω per end was used on bench.
+
+--------------------------------------------------------------------------------
+2. FTCAN KNOWLEDGE (SSOT + PITFALLS)
+--------------------------------------------------------------------------------
+29-bit extended ID (one unified field from TWAI):
+  bits [28:14] ProductID (15 bits)
+  bits [13:11] DataFieldID (3 bits)
+  bits [10:0]  MessageID (11 bits)
+
+DataFieldID (document / FTCAN.md):
+  0x00 — Standard CAN payload (raw bytes, no segmentation byte).
+  0x01 — Standard CAN bridge.
+  0x02 — FTCAN 2.0 (segmented: 0xFF = single 7-byte payload after marker;
+         0x00 = first segment + 2-byte length; 0x01..0xFE = continuation).
+  0x03 — FTCAN 2.0 bridge.
+
+Message families (ECU broadcast):
+  Realtime tuple: MessageID 0x0FF, 0x1FF, 0x2FF, 0x3FF — tuples of
+    (MeasureID u16 BE, value i16 BE).
+  Simplified: 0x600..0x608 — four int16 BE fields per frame, fixed layout;
+    FT600 CAN IDs use ProductID in 0x5020..0x503F (see measure-registry.json).
+
+FT600 / FTManager pitfalls (field experience):
+  * ProductID 0x0FFF = reserved "device searching / not fully configured" in the
+    public FTCAN doc — NOT the normal ECU ProductID. Do not treat as FT600
+    telemetry ProductID.
+  * Normal FT600 traffic uses ProductID 0x5020..0x503F when configured.
+  * CAN Port A vs B are independent — wiring must match the port configured in
+    FTManager (Sensors and Calibration → CAN Communication).
+  * Realtime Broadcast + Fixed data packet + Write to ECU + full power cycle
+    are required for settings to stick; verify in manual if UI labels differ.
+  * Two ESP32s only: receiver must ACK — use esp32-mini-debug env bench-pair
+    (NORMAL). LISTEN_ONLY on a 2-node bus can starve ACK and cause TX failures.
+
+Encoder/decoder bug we fixed early: acceptance filter mask must allow all
+extended IDs (0xFFFFFFFF mask with code 0 in this project’s TWAI setup).
+
+--------------------------------------------------------------------------------
+3. CODEBASE MAP (IMPORTANT FILES)
+--------------------------------------------------------------------------------
+esp32-can-sim/
+  src/main.cpp          — E2E pattern (v1.2.0): realtime + simplified 0x600–608
+                          + 2-frame segmented example on 0x140813FF.
+  src/can_config.h      — GPIO 21/22, 1 Mbps, filter accept-all.
+  platformio.ini        — include path to ../shared/protocol/ftcan/parsers for
+                          id_parser.h / build_can_id().
+  CAN_SIM_WIRING.txt      — bench wiring, ACK rule, flash commands.
+
+esp32-mini-debug/
+  src/main.cpp          — TWAI RX, health JSON, optional segment reset on bus-off.
+  src/frame_output.cpp  — JSON frame lines with id29.
+  src/mini_decode.cpp   — FT600-only decode path; realtime + simplified + segment
+                          reassembly feeding tuple decode.
+  src/ftcan_segment_asm.* — C++ reassembly (512 B cap, 6 streams); mirrors
+                          shared/protocol/ftcan/framing/segmentation.py.
+  src/id_parser.h       — parse_can_id / build_can_id (duplicate of shared C++
+                          header pattern).
+  platformio.ini        — default esp32dev (LISTEN_ONLY); bench-pair for 2-node.
+
+shared/protocol/ftcan/
+  parsers/id_parser.h|.py — 29-bit decomposition.
+  framing/segmentation.py — Python SegmentAssembler (reference for C++).
+  registry/measure-registry.json — measures, scales, simplifiedPackets 0x600–608.
+
+tools/
+  ftcan_e2e_bench.py    — serial smoke test (expected ids + channel names).
+
+External PDF: Protocol_FTCAN20.pdf (FuelTech) — authoritative for segmentation
+diagrams and full MeasureID table; not stored in this repo in all environments.
+
+--------------------------------------------------------------------------------
+4. WHAT WAS DELIVERED THIS SPRINT (WORKING)
+--------------------------------------------------------------------------------
+- Bench two-ESP32 CAN @ 1 Mbps with JSON frame + decoded output.
+- Correct FTCAN IDs for FT600 range using build_can_id(0x5020, …) on simulator
+  (older bug: wrong ProductID so is_ft600() never passed).
+- mini_decode: DFI 0x00/0x01 tuples; DFI 0x02/0x03 single (0xFF) + multi-frame
+  reassembly via ftcan_segment_feed.
+- Simplified packets 0x600–0x608 aligned to measure-registry simplifiedPackets
+  (including 0x600 byte order: air temp vs coolant per registry).
+- Simulator phases covering all simplified IDs + segmented 2-frame realtime.
+- Bus-off clears segment state.
+- Python segmentation sanity test for 8-byte payload across 2 frames.
+
+--------------------------------------------------------------------------------
+5. WHAT REMAINS (SUGGESTED BACKLOG FOR NEW TEAM)
+--------------------------------------------------------------------------------
+A. Simulation / protocol completeness
+  [ ] Expand decode_measure() to cover more MeasureIDs from the PDF table (or
+      generate a compact lookup table from measure-registry.json and include
+      only IDs you need for the product).
+  [ ] Optional: load registry at build time (codegen) for ESP32 to avoid huge
+      hand-maintained switches.
+  [ ] Raise FTCAN_SEG_MAX_PAYLOAD if you must handle >512 B reassembled payloads
+      (spec allows up to 1776 — watch RAM).
+  [ ] Property-based or golden tests: capture serial JSON to fixtures/ and diff.
+
+B. E2E automation
+  [ ] CI or local script: flash sim + bench-pair RX (or document one-USB flash
+      order), run tools/ftcan_e2e_bench.py, fail on missing channels.
+  [ ] Parse "health" JSON for bus_error_count growth during test.
+
+C. Python gateway parity (if used)
+  [ ] xavier-gateway: ensure decoder uses same tuple + simplified rules as
+      mini_decode / segmentation.py.
+
+D. FT600 transition
+  [ ] Flash esp32-mini-debug env esp32dev (LISTEN_ONLY) for bus-only listen.
+  [ ] Confirm CAN Communication for the physical port; Write; power cycle.
+  [ ] Compare live id29 set against bench: expect 0x5020 range + tuple/simplified
+      families — not sustained 0x0FFF-only streams for telemetry validation.
+
+E. Documentation hygiene
+  [ ] Keep CAN_SIM_WIRING.txt updated when pins or envs change.
+  [ ] This file (HANDOVER_FTCAN_SPRINT.txt) — update when backlog items close.
+
+--------------------------------------------------------------------------------
+6. QUICK COMMANDS
+--------------------------------------------------------------------------------
+Build sim:     cd esp32-can-sim && pio run -e esp32dev
+Build RX bench: cd esp32-mini-debug && pio run -e bench-pair
+Flash:         pio run -t upload  (use --upload-port /dev/ttyUSBn if multiple)
+Monitor:       pio device monitor -b 921600
+E2E script:     python3 tools/ftcan_e2e_bench.py --port /dev/ttyUSB1 --seconds 10
+
+--------------------------------------------------------------------------------
+7. CONFIDENCE CHECKLIST BEFORE FT600
+--------------------------------------------------------------------------------
+[ ] Two-ESP32 bench: decoded lines for all simplified families you care about.
+[ ] Segmented 2-frame path: see decode for TPS/MAP from 0x140813FF pattern.
+[ ] No sustained rise in tx_fail on sim (occasional early fails may happen).
+[ ] ftcan_e2e_bench.py PASS on receiver serial.
+[ ] Team agrees on which MeasureIDs are in-scope for v1 product (subset of PDF).
+
+================================================================================
+END HANDOVER
+================================================================================

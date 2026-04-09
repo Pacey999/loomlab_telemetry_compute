@@ -73,6 +73,20 @@ Simulator:
   pio run -t upload
   pio device monitor -b 921600
 
-Expected:
-  - Sim serial: periodic {"type":"stats","tx_ok":...}
-  - Receiver serial: {"type":"frame",...} with id29 matching 0x140001FF or 0x14080600
+E2E FTCAN bench (sim → receiver decode)
+----------------------------------------
+  - Simulator v1.2.0 builds 29-bit IDs with ProductID 0x5020 (FT600 range) via shared
+    `build_can_id()` — same math as `esp32-mini-debug` / `id_parser.h`.
+  - One rotating pattern per tick (~80 ms): realtime tuple DFI 0x00 (MID 0x1FF), DFI 0x02
+    single (MID 0x2FF), DFI 0x02 first segment (MID 0x0FF), simplified 0x600–0x603.
+
+Expected on receiver (bench-pair + serial monitor 921600):
+  - {"type":"frame","id29":"0x14080..."} — IDs like 0x140801FF, 0x140811FF, 0x140808FF,
+    0x14080600 … 0x14080603 (never 0x140001FF — that was an old bug: wrong ProductID).
+  - {"type":"decoded",...} — engine.tps_pct, engine.map_bar, wheel.*_kmh, etc., cycling
+    with the simulator phase (13 phases including simplified 0x604–0x608 and a 2-frame
+    segmented realtime tuple on 0x140813FF).
+
+Receiver v1.1.0 also reassembles FTCAN 2.0 multi-frame segmented payloads (see
+esp32-mini-debug/src/ftcan_segment_asm.cpp, aligned with
+shared/protocol/ftcan/framing/segmentation.py).
