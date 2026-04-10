@@ -1,0 +1,35 @@
+# Runs on a self-hosted runner with two ESP32s + CAN bench (see scripts/hardware_e2e.sh).
+# Configure repository Variables: FTCAN_RX_PORT, FTCAN_SIM_PORT (e.g. /dev/ttyACM0).
+# Runner labels: default expects [self-hosted, ftcan-bench] — edit `runs-on` to match your runner.
+
+name: ftcan-hardware-e2e
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_flash:
+        description: "Only run serial bench (SKIP_FLASH=1)"
+        type: boolean
+        default: false
+
+jobs:
+  hardware-bench:
+    runs-on: [self-hosted, ftcan-bench]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PlatformIO + bench
+        env:
+          FTCAN_RX_PORT: ${{ vars.FTCAN_RX_PORT }}
+          FTCAN_SIM_PORT: ${{ vars.FTCAN_SIM_PORT }}
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.skip_flash }}" = "true" ]; then export SKIP_FLASH=1; else export SKIP_FLASH=0; fi
+          if ! command -v pio >/dev/null 2>&1; then
+            echo "Install PlatformIO on the self-hosted runner (pip install platformio)." >&2
+            exit 1
+          fi
+          python3 -c "import serial" 2>/dev/null || python3 -m pip install --user pyserial
+          chmod +x scripts/hardware_e2e.sh
+          ./scripts/hardware_e2e.sh

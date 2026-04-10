@@ -118,14 +118,16 @@ namespace {
 
 /** FT600 default ProductID (unique ID 0). All IDs must pass mini_decode is_ft600(). */
 constexpr uint16_t k_ft600_pid = 0x5020u;
+/** Second ECU ID in FT600 range — exercises ProductID 0x5021 (same layouts). */
+constexpr uint16_t k_ft600_pid_alt = 0x5021u;
 
 /*
  * Rotating E2E pattern — one frame per tick (~12.5 Hz per phase @ 80 ms).
- * Covers: realtime tuples (DFI 0x00 / 0x02), simplified 0x600–0x608, 2-frame segmented.
+ * Covers: realtime tuples (DFI 0x00 / 0x02), simplified 0x600–0x608, 2- and 3-frame segmented.
  */
 constexpr uint32_t TX_PERIOD_MS = 80u;
 constexpr uint32_t SERIAL_BAUD    = 921600u;
-constexpr uint8_t  k_num_phases   = 13u;
+constexpr uint8_t  k_num_phases   = 15u;
 
 uint32_t g_tx_ok = 0;
 uint32_t g_tx_fail = 0;
@@ -195,8 +197,8 @@ void setup() {
         }
     }
 
-    Serial.println("{\"type\":\"startup\",\"firmware\":\"esp32-can-sim\",\"version\":\"1.2.0\","
-                   "\"mode\":\"ftcan_e2e\",\"product_id\":\"0x5020\",\"phases\":13,"
+    Serial.println("{\"type\":\"startup\",\"firmware\":\"esp32-can-sim\",\"version\":\"1.3.0\","
+                   "\"mode\":\"ftcan_e2e\",\"product_id\":\"0x5020\",\"phases\":15,"
                    "\"bitrate_kbps\":1000,\"extended\":true}");
 }
 
@@ -365,6 +367,29 @@ void loop() {
             const uint8_t s1[8] = {0x01, 0x04, 0x03, 0xE8, 0x00, 0x00, 0x00, 0x00};
             send_one(id29, s0);
             send_one(id29, s1);
+            skip_single_send = true;
+        } break;
+        case 13: {
+            /* Alternate ProductID 0x5021 — same simplified 0x600 layout as phase 3 */
+            id29 = build_can_id(k_ft600_pid_alt, 0x00, 0x600);
+            d[0] = 0x01;
+            d[1] = 0xF4;
+            d[2] = 0x03;
+            d[3] = 0xE8;
+            d[4] = 0x01;
+            d[5] = 0x90;
+            d[6] = 0x03;
+            d[7] = 0x20;
+        } break;
+        case 14: {
+            /* Three CAN frames: 16 B tuple payload (4 measures), MID 0x0FF, DFI 0x02 */
+            id29 = build_can_id(k_ft600_pid, 0x02, 0x0FF);
+            const uint8_t s0[8] = {0x00, 0x00, 0x10, 0x00, 0x00, 0x02, 0x03, 0xE8};
+            const uint8_t s1[8] = {0x01, 0x00, 0x04, 0x03, 0xE8, 0x00, 0x06, 0x01};
+            const uint8_t s2[8] = {0x02, 0x00, 0x08, 0x00, 0x64, 0x00, 0x00, 0x00};
+            send_one(id29, s0);
+            send_one(id29, s1);
+            send_one(id29, s2);
             skip_single_send = true;
         } break;
         default:

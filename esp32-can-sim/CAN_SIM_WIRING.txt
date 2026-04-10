@@ -77,15 +77,30 @@ E2E FTCAN bench (sim → receiver decode)
 ----------------------------------------
   - Simulator v1.2.0 builds 29-bit IDs with ProductID 0x5020 (FT600 range) via shared
     `build_can_id()` — same math as `esp32-mini-debug` / `id_parser.h`.
-  - One rotating pattern per tick (~80 ms): realtime tuple DFI 0x00 (MID 0x1FF), DFI 0x02
-    single (MID 0x2FF), DFI 0x02 first segment (MID 0x0FF), simplified 0x600–0x603.
+  - One rotating pattern per tick (~80 ms): firmware v1.3.0 uses 15 phases — realtime
+    tuples (DFI 0x00 / 0x02), simplified 0x600–0x608, 2-frame segmented (MID 0x3FF),
+    alternate ProductID 0x5021 on simplified 0x600 (id29 0x14084600), and a 3-frame
+    segmented tuple on MID 0x0FF (DFI 0x02, 16-byte payload).
 
 Expected on receiver (bench-pair + serial monitor 921600):
-  - {"type":"frame","id29":"0x14080..."} — IDs like 0x140801FF, 0x140811FF, 0x140808FF,
-    0x14080600 … 0x14080603 (never 0x140001FF — that was an old bug: wrong ProductID).
+  - {"type":"frame","id29":"0x14080..."} — IDs like 0x140801FF, 0x140812FF, 0x140810FF,
+    0x14080600 … 0x14080608, 0x14084600 (second ProductID), 0x140813FF (never 0x140001FF
+    — that was an old bug: wrong ProductID).
   - {"type":"decoded",...} — engine.tps_pct, engine.map_bar, wheel.*_kmh, etc., cycling
-    with the simulator phase (13 phases including simplified 0x604–0x608 and a 2-frame
-    segmented realtime tuple on 0x140813FF).
+    with the simulator phase (15 phases: includes 2- and 3-frame segmented realtime).
+
+LISTEN_ONLY receiver (esp32dev) vs bench-pair — when to use which
+-----------------------------------------------------------------
+  - Two ESP32s only (sim + RX): RX **must** ACK → use **bench-pair** (NORMAL).
+  - **LISTEN_ONLY** (default esp32-mini-debug env): does **not** ACK. OK on a **vehicle
+    bus** where the ECU and other nodes ACK — use for **FT600** listen-only tap.
+  - If you must use LISTEN_ONLY on the **two-node** bench, add a **third** node
+    (USB-CAN, second ECU, etc.) that ACKs, or the simulator will see tx_fail / timeouts.
+
+FT600 note
+----------
+  Bench sim cannot reproduce FTManager / power-cycle / CAN port selection. Use
+  fingerprint compare + session logs on the car; see HANDOVER_FTCAN_SPRINT.txt.
 
 Receiver v1.1.0 also reassembles FTCAN 2.0 multi-frame segmented payloads (see
 esp32-mini-debug/src/ftcan_segment_asm.cpp, aligned with

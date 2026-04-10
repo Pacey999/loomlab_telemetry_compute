@@ -6,7 +6,7 @@ Output: a header file with MeasureEntry structs and simplified-packet slot
 tables consumable by ESP32 firmware.
 
 Usage:
-    python -m shared.protocol.ftcan.generators.gen_cpp [--out ftcan_registry.h]
+    python3 shared/protocol/ftcan/generators/gen_cpp.py [--out esp32-mini-debug/src/ftcan_registry.h]
 """
 
 from __future__ import annotations
@@ -17,10 +17,14 @@ from pathlib import Path
 
 REGISTRY_PATH = Path(__file__).resolve().parent.parent / "registry" / "measure-registry.json"
 
+
+def _escape_cpp_str(s: str) -> str:
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
 HEADER_TEMPLATE = '''\
 #pragma once
 // AUTO-GENERATED from measure-registry.json — do not edit by hand.
-// Regenerate with: python -m shared.protocol.ftcan.generators.gen_cpp
+// Regenerate: python3 shared/protocol/ftcan/generators/gen_cpp.py --out esp32-mini-debug/src/ftcan_registry.h
 
 #include <cstdint>
 
@@ -66,16 +70,30 @@ def generate(registry_path: Path, output_path: Path) -> None:
     with open(registry_path) as f:
         reg = json.load(f)
 
-    measure_lines: list[str] = []
+    by_id: dict[int, dict] = {}
     for m in reg["measures"]:
-        mid = m["measureId"]
-        ch = m["channel"]
-        unit = m.get("unit", "-")
-        scale = m.get("scale", 1)
+        by_id[int(m["measureId"])] = m
+    base_ids = set(by_id.keys())
+
+    measure_lines: list[str] = []
+    seen_ids: set[int] = set()
+    for mid in sorted(by_id.keys()):
+        m = by_id[mid]
+        ch = _escape_cpp_str(m["channel"])
+        unit = _escape_cpp_str(str(m.get("unit", "-")))
+        scale = float(m.get("scale", 1))
         signed = "true" if m.get("signed", True) else "false"
         measure_lines.append(
             f'    {{0x{mid:04X}, "{ch}", "{unit}", {scale}f, {signed}}},'
         )
+        seen_ids.add(mid)
+        # Mirror Python FtcanDecoder: companion status row (odd id) shares channel/unit; skip if odd id exists in JSON.
+        sid = mid | 1
+        if sid != mid and sid not in base_ids and sid not in seen_ids:
+            measure_lines.append(
+                f'    {{0x{sid:04X}, "{ch}", "{unit}", 1.0f, false}},'
+            )
+            seen_ids.add(sid)
 
     simplified_lines: list[str] = []
     for msg_str, pkt in reg.get("simplifiedPackets", {}).items():
@@ -83,7 +101,7 @@ def generate(registry_path: Path, output_path: Path) -> None:
         for slot in pkt["slots"]:
             pos = slot["position"]
             mid = slot.get("measureId", 0)
-            ch = slot["channel"]
+            ch = _escape_cpp_str(slot["channel"])
             simplified_lines.append(
                 f'    {{0x{msg_id:03X}, {pos}, 0x{mid:04X}, "{ch}"}},'
             )

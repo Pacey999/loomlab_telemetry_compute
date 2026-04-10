@@ -1,0 +1,33 @@
+name: ftcan-fixtures
+
+on:
+  push:
+    paths:
+      - "tools/ftcan*.py"
+      - "fixtures/ftcan/**"
+      - "xavier-gateway/**"
+      - ".github/workflows/ftcan-fixtures.yml"
+  pull_request:
+    paths:
+      - "tools/ftcan*.py"
+      - "fixtures/ftcan/**"
+      - "xavier-gateway/**"
+      - ".github/workflows/ftcan-fixtures.yml"
+
+jobs:
+  python-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Golden serial JSONL (no hardware)
+        run: python3 tools/ftcan_verify_serial_fixture.py
+      - name: Compare golden vs fingerprint
+        run: python3 tools/ftcan_compare_session.py --capture fixtures/ftcan/serial_bench_golden.jsonl --fingerprint fixtures/ftcan/bench_fingerprint_golden.json
+      - name: Python vs session decode parity
+        run: python3 tools/ftcan_decode_parity.py --session fixtures/ftcan/serial_bench_golden.jsonl
+      - name: Gateway replay determinism
+        working-directory: xavier-gateway
+        run: python3 test_replay_determinism.py

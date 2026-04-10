@@ -1,0 +1,17 @@
+{"type":"frame","id29":"0x14080600","dlc":8,"data":[0,0,0,0,0,0,0,0],"ts_ms":1,"seq":1}
+{"type":"frame","id29":"0x14080608","dlc":8,"data":[0,0,0,0,0,0,0,0],"ts_ms":2,"seq":2}
+{"type":"frame","id29":"0x140801FF","dlc":8,"data":[0,2,0,100,0,4,0,50],"ts_ms":3,"seq":3}
+{"type":"decoded","channel":"engine.tps_pct","value":10,"unit":"%"}
+{"type":"frame","id29":"0x140812FF","dlc":8,"data":[0,4,0,120,0,6,0,80],"ts_ms":4,"seq":4}
+{"type":"decoded","channel":"engine.map_bar","value":0.12,"unit":"bar"}
+{"type":"frame","id29":"0x140810FF","dlc":8,"data":[0,6,0,90,0,8,0,85],"ts_ms":5,"seq":5}
+{"type":"frame","id29":"0x140813FF","dlc":8,"data":[255,0,2,0,100,0,4,0,120],"ts_ms":6,"seq":6}
+{"type":"frame","id29":"0x14080600","dlc":8,"data":[0,0,0,0,0,0,0,0],"ts_ms":7,"seq":7}
+{"type":"frame","id29":"0x14080603","dlc":8,"data":[0,42,0,43,0,44,0,45],"ts_ms":8,"seq":8}
+{"type":"decoded","channel":"vehicle.wheel_speed_fr_kmh","value":42,"unit":"km/h"}
+{"type":"frame","id29":"0x14080608","dlc":8,"data":[0,200,0,0,0,0,0,0],"ts_ms":9,"seq":9}
+{"type":"decoded","channel":"engine.trans_temp_c","value":80,"unit":"C"}
+{"type":"frame","id29":"0x140801FF","dlc":8,"data":[0,2,0,100,0,4,0,50],"ts_ms":10,"seq":10}
+{"type":"frame","id29":"0x140812FF","dlc":8,"data":[0,4,0,120,0,6,0,80],"ts_ms":11,"seq":11}
+{"type":"frame","id29":"0x140810FF","dlc":8,"data":[0,6,0,90,0,8,0,85],"ts_ms":12,"seq":12}
+{"type":"frame","id29":"0x140813FF","dlc":8,"data":[255,0,2,0,100,0,4,0,120],"ts_ms":13,"seq":13}

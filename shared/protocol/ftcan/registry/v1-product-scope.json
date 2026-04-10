@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "description": "v1 scope: realtime tuple path uses codegen from measure-registry.json (ftcan_registry.h). Simplified 0x600-0x608 stays aligned with simplifiedPackets in mini_decode.cpp.",
+  "tuple_decode_mode": "registry_codegen",
+  "tuple_decode_source": "esp32-mini-debug/src/ftcan_registry.h",
+  "tuple_decode_includes_all_registry_measures": true,
+  "simplified_message_ids_hex": [
+    "0x600",
+    "0x601",
+    "0x602",
+    "0x603",
+    "0x604",
+    "0x605",
+    "0x606",
+    "0x607",
+    "0x608"
+  ],
+  "registry_measure_ids_not_in_tuple_switch": [],
+  "notes": "Regenerate: python3 shared/protocol/ftcan/generators/gen_cpp.py --out esp32-mini-debug/src/ftcan_registry.h"
+}

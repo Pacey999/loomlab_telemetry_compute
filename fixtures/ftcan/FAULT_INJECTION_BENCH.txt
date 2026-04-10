@@ -1,0 +1,26 @@
+================================================================================
+FTCAN BENCH — FAULT INJECTION & RECOVERY (manual, short)
+================================================================================
+Purpose: define "good" vs "bad" before FT600 field debugging. Run with two ESP32s
+(bench-pair on RX, sim TX) and serial logging (ftcan_session_record.py).
+
+PASS expectations (bounded recovery):
+  - After fault cleared: twai_state returns to "running" within a few seconds.
+  - bus_off_count may increment once; should not climb repeatedly.
+  - bus_error_count may tick; use soak --max-bus-error-delta as your budget.
+  - parse_errors on UART should stay 0 (ftcan_soak_bench.py --max-parse-errors 0).
+
+Suggested tests (one at a time; log each run):
+  1) Power-cycle TX sim mid-soak — expect RX health JSON to resume; note rx_count gap.
+  2) Disconnect CAN-H or CAN-L for 2–5 s — expect alerts / errors; reconnect; decode resumes.
+  3) Wiggle Dupont at transceiver — watch for parse_errors > 0 (UART) vs bus errors (CAN).
+
+FAIL (investigate before FT600):
+  - Sustained bus_off with no recovery after reconnect.
+  - parse_errors climbing (bad USB cable, wrong baud, or EMI on UART).
+  - Required id29/channels missing from fingerprint compare after recovery.
+
+Log command example:
+  python3 tools/ftcan_session_record.py --port /dev/ttyUSB1 --out runs/fault_test.jsonl --seconds 120
+
+================================================================================

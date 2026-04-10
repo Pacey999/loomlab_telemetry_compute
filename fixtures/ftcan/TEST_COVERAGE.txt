@@ -1,0 +1,48 @@
+================================================================================
+FTCAN / DEVICE TEST COVERAGE AUDIT (repo SSOT)
+================================================================================
+Last full run: see git + HANDOVER_FTCAN_SPRINT.txt. Update this file when adding tests.
+
+DEVICES IN SCOPE
+----------------
+  D1  esp32-can-sim (TX, NORMAL, TWAI @ 1 Mbps extended)
+  D2  esp32-mini-debug bench-pair (RX, NORMAL, ACKs sim — two-node bench)
+  D3  esp32-mini-debug esp32dev (RX, LISTEN_ONLY — FT600 / bus tap; NOT used in CI)
+  D4  Python shared/protocol/ftcan (registry, segmentation, FtcanDecoder)
+  D5  xavier-gateway (GatewayDecoder + SegmentAssembler on JSONL)
+
+AUTOMATED (CI: .github/workflows/ftcan-fixtures.yml)
+----------------------------------------------------
+  T1  ftcan_verify_serial_fixture.py
+      Covers: D2 output schema (frame/decoded), fixed golden JSONL — no hardware.
+  T2  ftcan_compare_session vs bench_fingerprint_golden.json
+      Covers: id29 + channel subset vs small golden capture.
+  T3  ftcan_decode_parity on golden
+      Covers: D4 Python must explain every D2 "decoded" line in fixture.
+  T4  xavier-gateway/test_replay_determinism.py
+      Covers: D5 replay determinism on fixtures/ftcan/simplified_0x14080600.jsonl.
+
+MANUAL / LOCAL (not in default CI)
+----------------------------------
+  T5  pio run -e esp32dev (esp32-can-sim) — D1 firmware compiles.
+  T6  pio run -e bench-pair (esp32-mini-debug) — D2 firmware compiles.
+  T7  gen_cpp.py → ftcan_registry.h — D4 ↔ D2 tuple table sync.
+  T8  ftcan_e2e_bench.py — D1+D2 on CAN + serial; health + WANT_IDS/WANT_CHANNELS.
+  T9  ftcan_session_record + compare bench_fingerprint.json + decode_parity
+      — full bench fingerprint + D4/D5 vs D2 live capture.
+  T10 ftcan_soak_bench.py / scripts/bench_soak_long.sh — D2 long-run + UART parse budget.
+  T11 scripts/hardware_e2e.sh — flash D1+D2 then T8 (workflow: ftcan-hardware-e2e.yml).
+
+NOT COVERED BY AUTOMATION (field / policy)
+------------------------------------------
+  - D3 LISTEN_ONLY profile on bench (needs third ACK node or no sim TX).
+  - FT600 + FTManager + vehicle bus (only D3 + real ECU).
+  - Fault injection scenarios (see FAULT_INJECTION_BENCH.txt — manual).
+
+GAP WATCH
+---------
+  - CI does not build PlatformIO (T5/T6) — run before release tags.
+  - Soak (T10) optional before long drives.
+  - Regenerate esp32-mini-debug/src/ftcan_registry.h after measure-registry.json edits (T7).
+
+================================================================================

@@ -107,20 +107,37 @@ diagrams and full MeasureID table; not stored in this repo in all environments.
 --------------------------------------------------------------------------------
 5. WHAT REMAINS (SUGGESTED BACKLOG FOR NEW TEAM)
 --------------------------------------------------------------------------------
+v1 scope SSOT: shared/protocol/ftcan/registry/v1-product-scope.json
+(tuple path: codegen ftcan_registry.h from measure-registry.json; simplified 0x600-0x608 still in mini_decode).
+
+Golden serial regression (no hardware): fixtures/ftcan/serial_bench_golden.jsonl +
+python3 tools/ftcan_verify_serial_fixture.py (shared rules in tools/ftcan_bench_expectations.py).
+CI (fixture + gateway replay): .github/workflows/ftcan-fixtures.yml
+Hardware E2E (self-hosted): scripts/hardware_e2e.sh + .github/workflows/ftcan-hardware-e2e.yml
+(runner labels [self-hosted, ftcan-bench]; repo Variables FTCAN_RX_PORT, FTCAN_SIM_PORT).
+
+Hardening / QC (bench-only, before FT600)
+  [x] Soak: tools/ftcan_soak_bench.py (--minutes, --max-parse-errors for UART integrity).
+  [x] Long soak helper: scripts/bench_soak_long.sh (default 45 min).
+  [x] Record + compare + parity: scripts/bench_regression.sh → ftcan_session_record,
+      ftcan_compare_session vs fixtures/ftcan/bench_fingerprint.json, ftcan_decode_parity.
+  [x] Fault-injection checklist: fixtures/ftcan/FAULT_INJECTION_BENCH.txt
+  [x] LISTEN_ONLY vs bench-pair: CAN_SIM_WIRING.txt (FT600 listen vs two-node ACK).
+  [x] Simulator v1.3.0: second ProductID 0x5021 (0x14084600) + 3-frame segmented tuple.
+
 A. Simulation / protocol completeness
-  [ ] Expand decode_measure() to cover more MeasureIDs from the PDF table (or
-      generate a compact lookup table from measure-registry.json and include
-      only IDs you need for the product).
-  [ ] Optional: load registry at build time (codegen) for ESP32 to avoid huge
-      hand-maintained switches.
+  [x] Tuple decode: generated esp32-mini-debug/src/ftcan_registry.h (regenerate after
+      registry edits: python3 shared/protocol/ftcan/generators/gen_cpp.py --out …).
   [ ] Raise FTCAN_SEG_MAX_PAYLOAD if you must handle >512 B reassembled payloads
       (spec allows up to 1776 — watch RAM).
-  [ ] Property-based or golden tests: capture serial JSON to fixtures/ and diff.
+  [x] Golden fixture + verifier; optional: extend serial_bench_golden.jsonl from captures.
 
 B. E2E automation
-  [ ] CI or local script: flash sim + bench-pair RX (or document one-USB flash
-      order), run tools/ftcan_e2e_bench.py, fail on missing channels.
-  [ ] Parse "health" JSON for bus_error_count growth during test.
+  [x] Local script: scripts/hardware_e2e.sh (env FTCAN_SIM_PORT, FTCAN_RX_PORT, optional SKIP_FLASH=1).
+  [x] tools/ftcan_e2e_bench.py: health JSON — bus_error_count delta (default max 10) and bus_off_count
+      increase (fail unless --allow-bus-off-increase); --no-health-check to disable.
+  [x] Non-hardware CI: ftcan-fixtures workflow.
+  [x] Optional hardware workflow_dispatch: ftcan-hardware-e2e.yml (self-hosted runner + pio).
 
 C. Python gateway parity (if used)
   [ ] xavier-gateway: ensure decoder uses same tuple + simplified rules as
@@ -133,7 +150,7 @@ D. FT600 transition
       families — not sustained 0x0FFF-only streams for telemetry validation.
 
 E. Documentation hygiene
-  [ ] Keep CAN_SIM_WIRING.txt updated when pins or envs change.
+  [x] CAN_SIM_WIRING.txt — LISTEN_ONLY, phases v1.3.0, FT600 note.
   [ ] This file (HANDOVER_FTCAN_SPRINT.txt) — update when backlog items close.
 
 --------------------------------------------------------------------------------
@@ -144,15 +161,22 @@ Build RX bench: cd esp32-mini-debug && pio run -e bench-pair
 Flash:         pio run -t upload  (use --upload-port /dev/ttyUSBn if multiple)
 Monitor:       pio device monitor -b 921600
 E2E script:     python3 tools/ftcan_e2e_bench.py --port /dev/ttyUSB1 --seconds 10
+Fixture check:  python3 tools/ftcan_verify_serial_fixture.py
+Regen registry: python3 shared/protocol/ftcan/generators/gen_cpp.py --out esp32-mini-debug/src/ftcan_registry.h
+Hardware E2E:   FTCAN_SIM_PORT=/dev/ttyUSB0 FTCAN_RX_PORT=/dev/ttyUSB1 ./scripts/hardware_e2e.sh
+Soak (45 min):  ./scripts/bench_soak_long.sh
+Regression:     ./scripts/bench_regression.sh runs/bench.jsonl 45
+Analyze session: python3 tools/ftcan_session_analyze.py runs/bench.jsonl
 
 --------------------------------------------------------------------------------
 7. CONFIDENCE CHECKLIST BEFORE FT600
 --------------------------------------------------------------------------------
 [ ] Two-ESP32 bench: decoded lines for all simplified families you care about.
 [ ] Segmented 2-frame path: see decode for TPS/MAP from 0x140813FF pattern.
+[ ] Segmented 3-frame path (16 B tuples on 0x140810FF) and second ProductID 0x14084600.
 [ ] No sustained rise in tx_fail on sim (occasional early fails may happen).
 [ ] ftcan_e2e_bench.py PASS on receiver serial.
-[ ] Team agrees on which MeasureIDs are in-scope for v1 product (subset of PDF).
+[ ] Team agrees product subset vs full registry tuple table (tuple path now follows full registry codegen).
 
 ================================================================================
 END HANDOVER

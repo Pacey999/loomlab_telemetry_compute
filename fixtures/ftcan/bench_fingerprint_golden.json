@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "name": "CI golden JSONL (fixtures/ftcan/serial_bench_golden.jsonl)",
+  "required_id29": [
+    "0x140801FF",
+    "0x140812FF",
+    "0x140810FF",
+    "0x140813FF",
+    "0x14080600",
+    "0x14080608"
+  ],
+  "required_channels": [
+    "engine.tps_pct",
+    "engine.map_bar",
+    "vehicle.wheel_speed_fr_kmh",
+    "engine.trans_temp_c"
+  ],
+  "min_unique_id29": 5,
+  "min_decoded_channel_count": 4,
+  "min_frame_lines": 10,
+  "max_bus_error_delta": 999,
+  "allow_bus_off_increase": true,
+  "fail_on_parse_errors": true
+}

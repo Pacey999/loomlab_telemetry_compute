@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <cstdio>
 
+#include "ftcan_registry.h"
 #include "ftcan_segment_asm.h"
 #include "id_parser.h"
 
@@ -23,55 +24,31 @@ static inline uint16_t u16be(const uint8_t* d, uint8_t off) {
 }
 
 /*
- * MeasureID → channel (subset; expand from shared/protocol/ftcan/registry/measure-registry.json).
- * Values are signed int16 big-endian raw words unless noted.
+ * Realtime tuple: MeasureID + raw u16 (value = signed int16; status = unsigned u16).
+ * Generated lookup: ftcan_registry.h (python3 shared/protocol/ftcan/generators/gen_cpp.py).
  */
-static void decode_measure(uint16_t measure_id, int16_t raw) {
-    switch (measure_id) {
-        case 0x0002:
-            emit_decoded("engine.tps_pct", static_cast<double>(raw) * 0.1, "%");
-            break;
-        case 0x0004:
-            emit_decoded("engine.map_bar", static_cast<double>(raw) * 0.001, "bar");
-            break;
-        case 0x0006:
-            emit_decoded("engine.air_temp_c", static_cast<double>(raw) * 0.1, "C");
-            break;
-        case 0x0008:
-            emit_decoded("engine.coolant_temp_c", static_cast<double>(raw) * 0.1, "C");
-            break;
-        case 0x000A:
-            emit_decoded("engine.oil_pressure_bar", static_cast<double>(raw) * 0.001, "bar");
-            break;
-        case 0x000C:
-            emit_decoded("engine.fuel_pressure_bar", static_cast<double>(raw) * 0.001, "bar");
-            break;
-        case 0x000E:
-            emit_decoded("engine.water_pressure_bar", static_cast<double>(raw) * 0.001, "bar");
-            break;
-        case 0x0012:
-            emit_decoded("electrical.battery_v", static_cast<double>(raw) * 0.01, "V");
-            break;
-        case 0x004E:
-            emit_decoded("lambda.exhaust_o2", static_cast<double>(raw) * 0.001, "lambda");
-            break;
-        case 0x0084:
-            emit_decoded("engine.rpm", static_cast<double>(raw), "RPM");
-            break;
-        case 0x0086:
-            emit_decoded("engine.inj_time_a_ms", static_cast<double>(raw) * 0.01, "ms");
-            break;
-        case 0x0088:
-            emit_decoded("engine.inj_time_b_ms", static_cast<double>(raw) * 0.01, "ms");
-            break;
-        default:
-            break;
+static void decode_measure(uint16_t measure_id, uint16_t raw_word) {
+    const MeasureEntry* e = ftcan_find_measure(measure_id);
+    if (e == nullptr) {
+        return;
+    }
+    const bool is_value = (measure_id & 1u) == 0u;
+    if (is_value) {
+        double v;
+        if (e->is_signed) {
+            v = static_cast<double>(static_cast<int16_t>(raw_word)) * static_cast<double>(e->scale);
+        } else {
+            v = static_cast<double>(raw_word) * static_cast<double>(e->scale);
+        }
+        emit_decoded(e->channel, v, e->unit);
+    } else {
+        emit_decoded(e->channel, static_cast<double>(raw_word), e->unit);
     }
 }
 
 static void decode_tuple_payload(const uint8_t* payload, uint16_t len) {
     for (uint16_t off = 0; off + 4 <= len; off += 4) {
-        decode_measure(u16be(payload, off), i16be(payload, off + 2));
+        decode_measure(u16be(payload, off), u16be(payload, off + 2));
     }
 }
 

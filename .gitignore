@@ -35,3 +35,6 @@ gtm-manual.pdf
 
 # Local agent / scratch
 agent-tools/
+
+# Local bench serial captures (regenerate with ftcan_session_record.py)
+runs/
