@@ -130,7 +130,8 @@ Flashing / firmware direction
 
 Immediate: retire esp32-mini-debug from active validation work.
 
-New firmware target e.g. esp32-ftcan-gateway or esp32-ftcan-fullrx:
+Single embedded target: esp32-full (registry + decoder + header JSON). No
+parallel “gateway-only” firmware trees — extend esp32-full only.
   - Live FT600 CAN
   - Structured JSON or binary telemetry over USB/UART/Wi-Fi
   - Decoder stats, dropped-frame counters, segmentation stats, unknown-message counters
@@ -242,13 +243,11 @@ Delivered in-repo (not the full sprint; foundation for the team):
     FtcanPipeline (layers 1–3), segmentation wrapper over existing SSOT
     SegmentAssembler, fixtures + unittest.
   - tools/ftcan2_replay.py — replay JSONL frame lines through the pipeline (CI).
-  - esp32-ftcan-gateway/ — new firmware target: LISTEN_ONLY, emits type=header
-    (parsed ID fields) + type=frame per RX; builds with PlatformIO; no mini_decode.
+  - esp32-full/ — merged: full decode (ftcan_registry.h + decoder.cpp) plus
+    gateway_header (type=header) on every extended frame; LISTEN_ONLY @ 921600
+    default; env bench-pair for two-node ACK. esp32-ftcan-gateway removed as
+    duplicate.
   - .github/workflows/ftcan-fixtures.yml — runs ftcan2 unit tests + replay CLI.
-
-Note: esp32-full already contains the full generated measure map (ftcan_registry.h)
-and decoder.cpp (tuple + simplified + segmented). Align new gateway work with
-that target; do not treat mini-debug as the decode reference.
 
 Next team: Layer 4–6, registry codegen, real-capture golden files, fuzz tests,
 and gateway stats/dropped counters per sprint doc.

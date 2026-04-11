@@ -4,5 +4,5 @@
 
 #include <driver/twai.h>
 
-/** Emit Layer-2 JSON (`type":"header"`) for every extended frame — no product-band gate. */
+/** Parsed FTCAN envelope (Layer 2) — emitted before raw frame for every extended ID. */
 void emit_ftcan_header_json(Stream& out, const twai_message_t& msg, uint32_t seq);

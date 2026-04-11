@@ -14,7 +14,8 @@ E2E tests, then attach the FT600 with confidence.
   structured channels (TPS, MAP, RPM, wheel speeds, etc.) for telemetry.
 - Stack:
   * esp32-can-sim     — TX test rig (known IDs/payloads).
-  * esp32-mini-debug  — RX + JSONL frame log + JSON "decoded" lines.
+  * esp32-mini-debug  — RX + JSONL (subset decode; bench smoke).
+  * esp32-full        — full measure map + decoder + type=header JSON (single embedded target).
   * shared/protocol/ftcan — id layout, Python segmentation, measure-registry.json.
   * tools/ftcan_e2e_bench.py — quick serial smoke check (needs pyserial).
 

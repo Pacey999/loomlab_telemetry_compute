@@ -5,6 +5,7 @@
 #include "can_config.h"
 #include "decoder.h"
 #include "frame_output.h"
+#include "gateway_header.h"
 #include "health.h"
 
 namespace {
@@ -30,15 +31,21 @@ bool rx_stale(uint32_t now_ms) {
 }  // namespace
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(921600);
     delay(200);
 
     health_init();
 
+#ifdef BENCH_TWO_NODE_ACK
+    constexpr twai_mode_t k_twai_mode = TWAI_MODE_NORMAL;
+#else
+    constexpr twai_mode_t k_twai_mode = TWAI_MODE_LISTEN_ONLY;
+#endif
+
     twai_general_config_t g_config =
         TWAI_GENERAL_CONFIG_DEFAULT(static_cast<gpio_num_t>(CAN_TX_GPIO),
                                     static_cast<gpio_num_t>(CAN_RX_GPIO),
-                                    TWAI_MODE_NORMAL);
+                                    k_twai_mode);
     g_config.rx_queue_len = CAN_RX_QUEUE_LEN;
 
     twai_timing_config_t t_config = CAN_TIMING_1MBPS();
@@ -66,7 +73,15 @@ void setup() {
         }
     }
 
-    Serial.println("{\"type\":\"startup\",\"firmware\":\"esp32-full\",\"version\":\"1.0.0\"}");
+    Serial.printf(
+        "{\"type\":\"startup\",\"firmware\":\"esp32-full\",\"version\":\"1.1.0\","
+        "\"role\":\"ftcan_full_decode+header\""
+#ifdef BENCH_TWO_NODE_ACK
+        ",\"twai_mode\":\"NORMAL\",\"note\":\"bench_pair_ACK\"}\n"
+#else
+        ",\"twai_mode\":\"LISTEN_ONLY\"}\n"
+#endif
+    );
     g_last_health_ms = millis();
 }
 
@@ -82,6 +97,9 @@ void loop() {
         g_seq++;
         health_on_rx();
         health_on_frame_id(msg.identifier & 0x1FFFFFFFu);
+        if ((msg.flags & TWAI_MSG_FLAG_EXTD) != 0) {
+            emit_ftcan_header_json(Serial, msg, g_seq);
+        }
         emit_raw_frame(Serial, msg, ts, g_seq);
         decode_frame(msg, g_seq, Serial);
     }

@@ -21,10 +21,18 @@ REGISTRY_PATH = Path(__file__).resolve().parent.parent / "registry" / "measure-r
 def _escape_cpp_str(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
+
+def _cpp_float_literal(x: float) -> str:
+    """Format a float for C++ (avoid `1f` — parsed as user-defined literal, not float)."""
+    s = f"{float(x):.10g}"
+    if "e" in s.lower() or "." in s:
+        return s + "f"
+    return s + ".0f"
+
 HEADER_TEMPLATE = '''\
 #pragma once
 // AUTO-GENERATED from measure-registry.json — do not edit by hand.
-// Regenerate: python3 shared/protocol/ftcan/generators/gen_cpp.py --out esp32-mini-debug/src/ftcan_registry.h
+// Regenerate: python3 shared/protocol/ftcan/generators/gen_cpp.py --out esp32-full/src/ftcan_registry.h
 
 #include <cstdint>
 
@@ -83,8 +91,9 @@ def generate(registry_path: Path, output_path: Path) -> None:
         unit = _escape_cpp_str(str(m.get("unit", "-")))
         scale = float(m.get("scale", 1))
         signed = "true" if m.get("signed", True) else "false"
+        scale_lit = _cpp_float_literal(scale)
         measure_lines.append(
-            f'    {{0x{mid:04X}, "{ch}", "{unit}", {scale}f, {signed}}},'
+            f'    {{0x{mid:04X}, "{ch}", "{unit}", {scale_lit}, {signed}}},'
         )
         seen_ids.add(mid)
         # Mirror Python FtcanDecoder: companion status row (odd id) shares channel/unit; skip if odd id exists in JSON.

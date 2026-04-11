@@ -1,6 +1,6 @@
 #pragma once
 // AUTO-GENERATED from measure-registry.json — do not edit by hand.
-// Regenerate: python3 shared/protocol/ftcan/generators/gen_cpp.py --out esp32-mini-debug/src/ftcan_registry.h
+// Regenerate: python3 shared/protocol/ftcan/generators/gen_cpp.py --out esp32-full/src/ftcan_registry.h
 
 #include <cstdint>
 
