@@ -4,13 +4,17 @@ on:
   push:
     paths:
       - "tools/ftcan*.py"
+      - "tools/ftcan2*.py"
       - "fixtures/ftcan/**"
+      - "shared/protocol/ftcan2/**"
       - "xavier-gateway/**"
       - ".github/workflows/ftcan-fixtures.yml"
   pull_request:
     paths:
       - "tools/ftcan*.py"
+      - "tools/ftcan2*.py"
       - "fixtures/ftcan/**"
+      - "shared/protocol/ftcan2/**"
       - "xavier-gateway/**"
       - ".github/workflows/ftcan-fixtures.yml"
 
@@ -31,3 +35,7 @@ jobs:
       - name: Gateway replay determinism
         working-directory: xavier-gateway
         run: python3 test_replay_determinism.py
+      - name: FTCAN 2.0 pipeline unit tests
+        run: python3 -m unittest discover -s shared/protocol/ftcan2/tests -p 'test_*.py' -v
+      - name: FTCAN 2.0 replay CLI (sample fixture)
+        run: python3 tools/ftcan2_replay.py --session shared/protocol/ftcan2/fixtures/sample_session.jsonl >/tmp/ftcan2_replay.out && test "$(wc -l </tmp/ftcan2_replay.out)" -ge 3

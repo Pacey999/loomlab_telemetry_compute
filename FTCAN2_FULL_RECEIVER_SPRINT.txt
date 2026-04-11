@@ -1,0 +1,254 @@
+================================================================================
+FTCAN 2.0 Full Receiver Sprint — Instructions for Development Team
+================================================================================
+From: Mark (supervisor). esp32-mini-debug is no longer the target architecture.
+Date: 2026-04-11
+
+Mission summary
+---------------
+Replace the esp32-mini-debug mindset with a full FTCAN 2.0 receiver/gateway.
+The mini path proved the bus, extended frames, and exposed an incomplete decode
+path. The next step is the protocol and ECU as source of truth—not narrow
+FTManager permutations or the old ESP32 layout.
+
+--------------------------------------------------------------------------------
+Mission
+--------------------------------------------------------------------------------
+
+Build a full FTCAN 2.0 receiver/gateway that can:
+
+1. Ingest all valid FTCAN 2.0 traffic from FT600.
+2. Parse every 29-bit ID generically.
+3. Support all DataFieldID layouts we are likely to see.
+4. Assemble segmented packets.
+5. Decode the full protocol tables instead of a hand-picked subset.
+6. Normalize all decoded signals into one canonical telemetry model.
+7. Replay real captures deterministically for verification.
+
+The ECU is the source of truth. Do not design firmware around what is easy for
+the current ESP32 code. Protocol and FT600 behavior dictate the receiver.
+
+--------------------------------------------------------------------------------
+Hard rules
+--------------------------------------------------------------------------------
+
+1) Do not keep iterating on mini_decode
+   Do not patch the narrow path into a spaghetti decoder. That path was built
+   around selected FT600 product-band assumptions, selected tuple/simplified IDs,
+   and selected registry paths. That is why valid traffic can exist with no
+   decoded lines today.
+
+2) Implement the protocol from the spec outward
+   - CAN 2.0B extended mode
+   - 1 Mbps
+   - 29-bit ID split into ProductID, DataFieldID, MessageID
+   - DataFieldID values 0x00, 0x01, 0x02, 0x03
+   - 0x02/0x03: single-packet and segmented payload forms
+   - Big-endian values in data field
+
+3) Build a gateway, not a logger
+   End state: reliable structured decode, canonical signal extraction, replayable
+   tests, stable upstream interface for LoomLab / telemetry—not “print frames
+   faster.”
+
+--------------------------------------------------------------------------------
+Required architecture (layers)
+--------------------------------------------------------------------------------
+
+Layer 1 — CAN ingress
+  - Read all CAN 2.0B extended frames at 1 Mbps.
+  - Preserve timestamp, ID, DLC, raw bytes.
+  - Never discard unknown frames silently.
+  Output: RawCanFrame { ts, id29, dlc, data[8], flags }
+
+Layer 2 — FTCAN ID parser
+  - Parse id29 into product_id, product_type_id, unique_id, data_field_id,
+    message_id, is_response (per spec).
+  - Every extended frame—not only FT600-banded IDs.
+  Output: FtcanEnvelopeHeader
+
+Layer 3 — Data field parser
+  - Support DataFieldID: 0x00 Standard CAN; 0x01 Standard CAN Bridge;
+    0x02 FTCAN 2.0; 0x03 FTCAN 2.0 Bridge.
+  - For 0x02/0x03: single packet when byte 0 is 0xFF; segmented when 0x00..0xFE;
+    full reassembly per segmentation header length semantics; timeouts, duplicate
+    protection, partial-packet expiry.
+  - Segmented payload support up to 1776 bytes (per spec).
+  Output: FtcanPayloadMessage
+
+Layer 4 — Message family decoder
+  - Decode by message family, not ad-hoc if-statements.
+  - Support realtime reading broadcasts, realtime simple broadcasts,
+    commands/responses where relevant, module-specific simplified packets,
+    observed fixed/test packets if valid and useful.
+  - Spec includes families like 0x0FF/0x1FF/0x2FF/0x3FF and 0x600~0x608, but
+    implementation must not assume those are the only frames worth parsing.
+  Output: typed domain messages (RealtimeTupleMessage, SimplifiedBroadcastMessage,
+    SwitchPanelStateMessage, ModuleStatusMessage, UnknownButParsedMessage, etc.)
+
+Layer 5 — Measure decoder
+  - Map measure IDs to canonical engineering values; byte widths, signedness,
+    units, scales, enums, source metadata.
+  - Decode all available MeasureIDs from the FTCAN 2.0 table—not only current
+    GTM essentials.
+  Output: DecodedSignal { key, value, unit, quality, source_module,
+    source_message, ts }
+
+Layer 6 — Normalization and transport
+  - Publish normalized telemetry; ring buffer latest values; freshness/staleness;
+    provenance (ProductID / MessageID / MeasureID).
+
+--------------------------------------------------------------------------------
+Repository work plan
+--------------------------------------------------------------------------------
+
+1) New canonical package/module (do not bury in mini-debug)
+   e.g. shared/protocol/ftcan2/ or packages/ftcan2/
+   Contents: id_parser, datafield_parser, segmentation_reassembler,
+   product_registry, message_registry, measure_registry, decoders/,
+   normalization/, fixtures/
+   ESP32 consumes embedded-compatible logic; desktop replay uses same decode core.
+
+2) One strict SSOT
+   Single canonical definition for ProductTypeIDs, ProductID ranges, MessageIDs,
+   MeasureIDs, simplified layouts, units/scales. No duplicate tables across
+   firmware, Python, Node, replay scripts. One source, generated outward.
+
+3) Generated registry from protocol map
+   Machine-readable (JSON/YAML/codegen), checked in, versioned, test-covered:
+   ID family names, product ranges, per-message rules, per-measure schema,
+   offsets/lengths, endian, unit metadata.
+
+4) Unknown-frame retention
+   Unknown ≠ dropped. Every unrecognized frame: structurally parsed, logged,
+   replayable, inspectable.
+   Classification: RAW_ONLY | HEADER_PARSED | PAYLOAD_PARSED | SEMANTICALLY_DECODED
+
+--------------------------------------------------------------------------------
+Flashing / firmware direction
+--------------------------------------------------------------------------------
+
+Immediate: retire esp32-mini-debug from active validation work.
+
+New firmware target e.g. esp32-ftcan-gateway or esp32-ftcan-fullrx:
+  - Live FT600 CAN
+  - Structured JSON or binary telemetry over USB/UART/Wi-Fi
+  - Decoder stats, dropped-frame counters, segmentation stats, unknown-message counters
+
+Required live output modes (do not collapse into one debug print):
+  - raw frame stream
+  - parsed header stream
+  - fully decoded signal stream
+  - stats/health
+  Example types: frame, header, message, signal, stats
+
+--------------------------------------------------------------------------------
+Testing plan
+--------------------------------------------------------------------------------
+
+1) Replay harness first — deterministic replay from saved captures; same
+   decoded signals every run; must run in CI.
+
+2) Golden fixtures: realtime tuples, simplified broadcasts, segmented packets,
+   switchpanel, WB-O2 Nano / Nano PRO where available, EGT-8 where available,
+   previously observed IDs (e.g. 0x140842EA, 0x03FFC2FE). Variation in source
+   modules, not only FT600.
+
+3) Fuzz tests: invalid DLC, bad segmentation, missing first segment, out-of-order
+   segments, repeated segments, unknown ProductID/MessageID/MeasureID, endian errors.
+
+4) On-car acceptance after replay: FT600 only; FT600 + Nano/Nano PRO; FT600 +
+   SwitchPanel; FT600 + EGT-8 if available. Proper network termination per docs.
+
+--------------------------------------------------------------------------------
+FTManager / ECU-side policy
+--------------------------------------------------------------------------------
+
+Stop contorting FTManager around receiver limitations.
+
+  OK: real ECU/channel config for the car; deliberate test captures; module enablement.
+  Not OK: “change ECU mode until our partial decoder lights up.”
+
+Configure FT600 for legitimate operation; capture what it emits; decoder must
+support that.
+
+--------------------------------------------------------------------------------
+Scope priorities
+--------------------------------------------------------------------------------
+
+P1 — Protocol completeness: full ID parser, all DataFieldID modes, single +
+      segmented parsing, generic product handling.
+
+P2 — Decode breadth: full MeasureID table from current protocol release,
+      simplified packets, product-specific packets; extensible design (spec evolves).
+
+P3 — GTM operational channels: RPM, TPS, MAP/boost, coolant, oil/fuel pressure,
+      lambda, EGT, wheel speed, gear/drivetrain, traction-related, etc.
+
+P4 — Upstream integration: one stable signal model for LoomLab and future tools.
+
+--------------------------------------------------------------------------------
+Deliverables (end of sprint)
+--------------------------------------------------------------------------------
+
+Code:
+  - New full FTCAN receiver firmware target
+  - Canonical FTCAN protocol package
+  - Registry-driven decoder
+  - Replay CLI/tool
+  - CI tests for replay fixtures
+
+Evidence:
+  - Live capture: generic parsing of FT600 frames
+  - Segmented packet handling proof
+  - Decoding beyond current mini subset
+  - Unknown frames retained and surfaced
+  - Normalized output for key GTM channels
+
+Runtime proof (single live run minimum):
+  - Bus stats, parsed source modules, message family counts, decoded signal counts,
+    unknown message counts, staleness/freshness state
+
+--------------------------------------------------------------------------------
+Acceptance criteria (all must be true)
+--------------------------------------------------------------------------------
+
+1. No FT600 product-band hard gate blocks generic parsing.
+2. All FTCAN DataFieldID modes relevant to FuelTech network traffic supported.
+3. Single-packet and segmented FTCAN payloads decode correctly.
+4. Decoder behavior driven by canonical registry, not scattered if/else.
+5. Replay tests pass deterministically on real captures.
+6. Unknown frames preserved, classified, inspectable.
+7. Live FT600 traffic produces structured decoded signals without FTManager
+   compromises for the old partial decoder.
+
+--------------------------------------------------------------------------------
+Direct note to the team
+--------------------------------------------------------------------------------
+
+Do not spend another cycle making the FT600 “easy” for the old ESP32 code.
+The old code is the disposable prototype. The full FTCAN 2.0 receiver is the
+product. Build the gateway around the real protocol, the real ECU, and the
+full map.
+
+--------------------------------------------------------------------------------
+Implementation bootstrap (2026-04-11) — supervisor land
+--------------------------------------------------------------------------------
+
+Delivered in-repo (not the full sprint; foundation for the team):
+
+  - shared/protocol/ftcan2/ — FtcanEnvelopeHeader (no product-band gate),
+    RawCanFrame, DecodeStage, datafield classification for 0x00–0x03,
+    FtcanPipeline (layers 1–3), segmentation wrapper over existing SSOT
+    SegmentAssembler, fixtures + unittest.
+  - tools/ftcan2_replay.py — replay JSONL frame lines through the pipeline (CI).
+  - esp32-ftcan-gateway/ — new firmware target: LISTEN_ONLY, emits type=header
+    (parsed ID fields) + type=frame per RX; builds with PlatformIO; no mini_decode.
+  - .github/workflows/ftcan-fixtures.yml — runs ftcan2 unit tests + replay CLI.
+
+Next team: Layer 4–6, registry codegen, real-capture golden files, fuzz tests,
+and gateway stats/dropped counters per sprint doc.
+
+================================================================================
+END
+================================================================================

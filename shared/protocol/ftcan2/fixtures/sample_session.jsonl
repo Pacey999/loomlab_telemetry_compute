@@ -1,0 +1,4 @@
+{"type":"session_meta","version":1,"label":"ftcan2_replay_smoke"}
+{"type":"frame","id29":"0x140842EA","dlc":2,"data":[80,32],"ts_ms":1,"seq":1}
+{"type":"frame","id29":"0x03FFC2FE","dlc":2,"data":[80,33],"ts_ms":2,"seq":2}
+{"type":"frame","id29":"0x140801FF","dlc":8,"data":[0,1,0,0,0,200,0,0],"ts_ms":3,"seq":3}
