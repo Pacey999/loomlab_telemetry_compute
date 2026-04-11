@@ -246,6 +246,10 @@ Delivered in-repo (not the full sprint; foundation for the team):
     (parsed ID fields) + type=frame per RX; builds with PlatformIO; no mini_decode.
   - .github/workflows/ftcan-fixtures.yml — runs ftcan2 unit tests + replay CLI.
 
+Note: esp32-full already contains the full generated measure map (ftcan_registry.h)
+and decoder.cpp (tuple + simplified + segmented). Align new gateway work with
+that target; do not treat mini-debug as the decode reference.
+
 Next team: Layer 4–6, registry codegen, real-capture golden files, fuzz tests,
 and gateway stats/dropped counters per sprint doc.
 
