@@ -178,6 +178,41 @@ Analyze session: python3 tools/ftcan_session_analyze.py runs/bench.jsonl
 [ ] ftcan_e2e_bench.py PASS on receiver serial.
 [ ] Team agrees product subset vs full registry tuple table (tuple path now follows full registry codegen).
 
+--------------------------------------------------------------------------------
+8. FOR THE NEXT TEAM (engineering + management)
+--------------------------------------------------------------------------------
+What shipped
+  - Two-board CAN bench (sim + mini-debug) validated: E2E script, fingerprints, CI
+    (GitHub Actions: ftcan-fixtures.yml). Simulator v1.3.0 (15 phases: tuples, simplified
+    0x600-0x608, 2- and 3-frame segmented, ProductID 0x5021). Receiver uses registry-
+    generated ftcan_registry.h for tuple decode; simplified layouts in mini_decode.cpp.
+  - SSOT: shared/protocol/ftcan/registry/measure-registry.json; Python parity via
+    tools/ftcan_decode_parity.py and xavier-gateway shared decoder.
+
+FT600 field work (not automated)
+  - Flash esp32-mini-debug with env esp32dev (LISTEN_ONLY) — do NOT use bench-pair on
+    the vehicle bus unless you intend to ACK. CAN-H to CAN-H, CAN-L to CAN-L; common
+    ground. Confirm FT600 CAN port + FTManager (Write + power cycle) per FuelTech docs.
+  - Expect ProductID 0x5020-0x503F when configured; 0x0FFF-only is not normal ECU telemetry.
+  - Record sessions: python3 tools/ftcan_session_record.py --out runs/car.jsonl --seconds 60
+    (chunked read — safe at 921600). Compare: ftcan_compare_session.py vs bench_fingerprint.json.
+
+Identify which USB cable is which board
+  - python3 tools/identify_serial_boards.py (all ttyUSB/ttyACM). If output is garbled,
+    try 115200 baud in monitor or reset board; sim announces "esp32-can-sim" in startup JSON.
+
+Where to read next
+  - fixtures/ftcan/TEST_COVERAGE.txt — what each test covers.
+  - esp32-can-sim/CAN_SIM_WIRING.txt — polarity, ACK, LISTEN_ONLY vs bench-pair.
+
+Last plug-in check (2026-04-11)
+  - Host saw /dev/ttyUSB0 only. identify_serial_boards.py: initial bytes can look
+    garbled mid-stream; then lines matched esp32-can-sim ({"type":"stats",...}).
+  - Full two-node E2E (ftcan_e2e_bench.py on the receiver) was not re-run — need
+    mini-debug on a second USB port (or unplug/replug and map ports) and CAN bench wiring.
+  - CI-equivalent offline suite PASS: ftcan_verify_serial_fixture, compare+golden
+    fingerprint, ftcan_decode_parity, xavier-gateway/test_replay_determinism.py
+
 ================================================================================
 END HANDOVER
 ================================================================================
